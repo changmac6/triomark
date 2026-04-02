@@ -1,0 +1,8 @@
+node_modules/
+certs/
+*.log
+.DS_Store
+Thumbs.db
+*Zone.Identifier
+.env
+.env.*

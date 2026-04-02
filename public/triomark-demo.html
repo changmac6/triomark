@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TrioMark Demo</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #0f172a;
+      --panel-2: #111c34;
+      --border: #22304a;
+      --text: #e5e7eb;
+      --muted: #93a4c3;
+      --accent: #60a5fa;
+      --accent-2: #1d4ed8;
+      --ok: #10b981;
+      --err: #ef4444;
+      --code: #050b18;
+      --shadow: 0 12px 28px rgba(0,0,0,.28);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    .wrap {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+      background: rgba(11,18,32,.84);
+      border-bottom: 1px solid rgba(34,48,74,.9);
+    }
+
+    .topbar-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 14px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .titlebox h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .titlebox .meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input, button {
+      font: inherit;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+    }
+
+    input {
+      min-width: 320px;
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    button {
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+
+    button:hover {
+      border-color: #33507f;
+      background: #13203b;
+    }
+
+    button.primary {
+      background: var(--accent-2);
+      border-color: #315dd6;
+    }
+
+    button.primary:hover {
+      background: #1b56ee;
+    }
+
+    .summary-bar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .stat {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+      min-height: 86px;
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    .stat-value.small {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(29,78,216,.22);
+      border: 1px solid rgba(96,165,250,.28);
+      color: #dbeafe;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .pill.error {
+      background: rgba(239,68,68,.15);
+      border-color: rgba(239,68,68,.35);
+      color: #fecaca;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+      gap: 16px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .card.full {
+      grid-column: 1 / -1;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-head h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.2;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mini-btn {
+      padding: 7px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      background: #13203b;
+    }
+
+    .mini-btn.success {
+      border-color: rgba(16,185,129,.4);
+      color: #d1fae5;
+    }
+
+    .card-body {
+      padding: 0;
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px 16px;
+      min-height: 260px;
+      max-height: 560px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: var(--code);
+      color: #dbe7ff;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .compact pre {
+      min-height: 180px;
+      max-height: 360px;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 1100px) {
+      .summary-bar {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+      }
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .summary-bar {
+        grid-template-columns: 1fr;
+      }
+      input {
+        min-width: 100%;
+      }
+      .topbar-inner {
+        align-items: stretch;
+      }
+      .controls {
+        width: 100%;
+      }
+      .controls > * {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="titlebox">
+        <h1>TrioMark Demo</h1>
+        <div class="meta">前端 Phase 2 已補高熵 UA-CH、storage、mediaDevices、environment、automation、webgpu、webrtcExtended，並與現有 /fingerprint 後端資料合併顯示</div>
+      </div>
+
+      <div class="controls">
+        <input id="serverEndpoint" type="text" value="/fingerprint" />
+        <button id="runBtn" class="primary">重新蒐集</button>
+        <button id="copyAllBtn">複製全部</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div id="summaryBar" class="summary-bar">
+      <div class="stat">
+        <div class="stat-label">Collector</div>
+        <div id="statCollector" class="stat-value">-</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">前端元件數</div>
+        <div id="statComponents" class="stat-value">-</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Server 狀態</div>
+        <div id="statServer" class="stat-value">-</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">摘要標籤</div>
+        <div id="summaryPills" class="pill-row"></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="card compact">
+        <div class="card-head">
+          <h2>統一識別值</h2>
+          <div class="card-actions">
+            <button class="mini-btn" data-copy-target="unified">複製</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <pre id="unified"></pre>
+        </div>
+      </section>
+
+      <section class="card compact">
+        <div class="card-head">
+          <h2>後端資料</h2>
+          <div class="card-actions">
+            <button class="mini-btn" data-copy-target="server">複製</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <pre id="server"></pre>
+        </div>
+      </section>
+
+      <section class="card full">
+        <div class="card-head">
+          <h2>前端元件</h2>
+          <div class="card-actions">
+            <button class="mini-btn" data-copy-target="client">複製</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <pre id="client"></pre>
+        </div>
+      </section>
+
+      <section class="card full">
+        <div class="card-head">
+          <h2>前端分組</h2>
+          <div class="card-actions">
+            <button class="mini-btn" data-copy-target="groups">複製</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <pre id="groups"></pre>
+        </div>
+      </section>
+
+      <section class="card full">
+        <div class="card-head">
+          <h2>完整輸出</h2>
+          <div class="card-actions">
+            <button class="mini-btn" data-copy-target="raw">複製</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <pre id="raw"></pre>
+        </div>
+      </section>
+    </div>
+
+    <div class="footer-note">複製全部會輸出 unified / client / groups / server / raw 五段內容。</div>
+  </div>
+
+  <script type="module">
+    import { collectTriomark } from './triomark.js';
+
+    const endpointEl = document.getElementById('serverEndpoint');
+    const runBtn = document.getElementById('runBtn');
+    const copyAllBtn = document.getElementById('copyAllBtn');
+
+    const statCollector = document.getElementById('statCollector');
+    const statComponents = document.getElementById('statComponents');
+    const statServer = document.getElementById('statServer');
+    const summaryPills = document.getElementById('summaryPills');
+
+    const unifiedEl = document.getElementById('unified');
+    const clientEl = document.getElementById('client');
+    const groupsEl = document.getElementById('groups');
+    const serverEl = document.getElementById('server');
+    const rawEl = document.getElementById('raw');
+
+    let lastData = null;
+
+    function fmt(value) {
+      return JSON.stringify(value, null, 2);
+    }
+
+    async function copyText(text, btn) {
+      try {
+        await navigator.clipboard.writeText(text);
+        if (btn) {
+          const old = btn.textContent;
+          btn.textContent = '已複製';
+          btn.classList.add('success');
+          setTimeout(() => {
+            btn.textContent = old;
+            btn.classList.remove('success');
+          }, 1000);
+        }
+      } catch (error) {
+        console.error(error);
+        alert('複製失敗');
+      }
+    }
+
+    function buildAllText() {
+      if (!lastData) return '';
+      return [
+        '=== unified ===',
+        fmt(lastData.unified),
+        '',
+        '=== client ===',
+        fmt(lastData.client),
+        '',
+        '=== groupedComponents ===',
+        fmt(lastData.groupedComponents),
+        '',
+        '=== server ===',
+        fmt(lastData.server ?? { error: lastData.serverError ?? 'no server data' }),
+        '',
+        '=== raw ===',
+        fmt(lastData)
+      ].join('\\n');
+    }
+
+    function renderPills(data) {
+      const pills = [
+        `collector: ${data.collector}`,
+        `client components: ${Object.keys(data.client.components).length}`,
+        `server: ${data.server ? 'ok' : 'none'}`
+      ];
+      if (data.serverError) {
+        pills.push(`serverError: ${data.serverError}`);
+      }
+      summaryPills.innerHTML = pills.map(v => {
+        const isErr = v.startsWith('serverError');
+        return `<span class="pill ${isErr ? 'error' : ''}">${v}</span>`;
+      }).join('');
+    }
+
+    async function run() {
+      runBtn.disabled = true;
+      runBtn.textContent = '蒐集中…';
+
+      statCollector.textContent = '-';
+      statComponents.textContent = '-';
+      statServer.textContent = '蒐集中';
+      summaryPills.innerHTML = '<span class="pill">蒐集中</span>';
+
+      try {
+        const data = await collectTriomark({
+          includeServer: true,
+          serverEndpoint: endpointEl.value || '/fingerprint'
+        });
+
+        lastData = data;
+
+        statCollector.textContent = data.collector;
+        statComponents.textContent = String(Object.keys(data.client.components).length);
+        statServer.textContent = data.server ? 'ok' : (data.serverError || 'none');
+
+        renderPills(data);
+
+        unifiedEl.textContent = fmt(data.unified);
+        clientEl.textContent = fmt(data.client);
+        groupsEl.textContent = fmt(data.groupedComponents);
+        serverEl.textContent = fmt(data.server ?? { error: data.serverError ?? 'no server data' });
+        rawEl.textContent = fmt(data);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        lastData = null;
+
+        statCollector.textContent = 'error';
+        statComponents.textContent = '-';
+        statServer.textContent = 'error';
+        summaryPills.innerHTML = `<span class="pill error">${message}</span>`;
+
+        unifiedEl.textContent = '';
+        clientEl.textContent = '';
+        groupsEl.textContent = '';
+        serverEl.textContent = '';
+        rawEl.textContent = message;
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = '重新蒐集';
+      }
+    }
+
+    document.querySelectorAll('[data-copy-target]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-copy-target');
+        const el = document.getElementById(id);
+        await copyText(el?.textContent || '', btn);
+      });
+    });
+
+    copyAllBtn.addEventListener('click', async () => {
+      await copyText(buildAllText(), copyAllBtn);
+    });
+
+    runBtn.addEventListener('click', run);
+    run();
+  </script>
+</body>
+</html>
