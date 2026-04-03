@@ -1,5 +1,5 @@
 {
-  "name": "triomark",
+  "name": "clientmark",
   "version": "1.0.0",
   "description": "Node.js HTTPS server that captures full TLS ClientHello and computes JA3/JA4",
   "main": "server.js",
@@ -7,7 +7,13 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "gen-cert": "bash scripts/gen-cert.sh"
+    "gen-cert": "bash scripts/gen-cert.sh",
+    "risk:samples": "node scripts/risk-samples.js",
+    "risk:replay": "node scripts/risk-replay.js",
+    "risk:calibrate": "node scripts/risk-calibrate.js",
+    "risk:label": "node scripts/risk-label.js",
+    "risk:seed-demo": "node scripts/risk-seed-demo.js",
+    "risk:compare": "node scripts/risk-compare.js"
   },
   "dependencies": {
     "read-tls-client-hello": "latest"

@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TrioMark Risk Review</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #0f172a;
+      --panel-2: #111c34;
+      --border: #22304a;
+      --text: #e5e7eb;
+      --muted: #93a4c3;
+      --accent: #60a5fa;
+      --danger: #ef4444;
+      --warn: #f59e0b;
+      --ok: #10b981;
+      --shadow: 0 10px 28px rgba(0,0,0,.25);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .wrap { max-width: 1500px; margin: 0 auto; padding: 16px; }
+    .topbar { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); background: rgba(11,18,32,.88); border-bottom: 1px solid var(--border); }
+    .topbar-inner { max-width: 1500px; margin: 0 auto; padding: 12px 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .title h1 { margin: 0; font-size: 22px; }
+    .title .meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+    input, select, button, textarea { font: inherit; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); }
+    input, select, textarea { padding: 9px 11px; }
+    button { padding: 9px 12px; cursor: pointer; }
+    button.primary { background: #1d4ed8; }
+    .grid { display: grid; grid-template-columns: minmax(420px, 0.85fr) minmax(0, 1.15fr); gap: 16px; margin-top: 16px; }
+    .card { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; min-width: 0; }
+    .card-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .card-head h2 { margin: 0; font-size: 17px; }
+    .card-body { padding: 16px; }
+    .filters { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+    .list { display: flex; flex-direction: column; gap: 10px; max-height: 70vh; overflow: auto; }
+    .event { border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: rgba(255,255,255,.02); cursor: pointer; }
+    .event.active { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(96,165,250,.35) inset; }
+    .event h3 { margin: 0 0 6px 0; font-size: 15px; }
+    .event .sub { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .pill { font-size: 11px; padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); }
+    .pill.ok { color: #d1fae5; border-color: rgba(16,185,129,.35); }
+    .pill.warn { color: #fef3c7; border-color: rgba(245,158,11,.35); }
+    .pill.danger { color: #fecaca; border-color: rgba(239,68,68,.35); }
+    .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+    .kv { border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: rgba(255,255,255,.02); }
+    .kv .k { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .kv .v { font-size: 14px; word-break: break-word; }
+    pre { margin: 0; padding: 12px; border-radius: 12px; background: #07111f; color: #dbe7ff; overflow: auto; max-height: 40vh; font-size: 12px; }
+    .label-box { display: grid; gap: 8px; margin-top: 14px; }
+    .label-row { display: grid; grid-template-columns: 160px 1fr auto; gap: 8px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } .filters, .detail-grid, .label-row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="title">
+        <h1>TrioMark Risk Review</h1>
+        <div class="meta">檢視事件、摘要與人工標記。走 `/api/review/events`、`/api/review/labels`。</div>
+      </div>
+      <div class="toolbar">
+        <button id="reloadBtn" class="primary">重新載入</button>
+        <button id="seedDemoBtn">產生示範資料</button>
+        <span id="seedStatus" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="card-head"><h2>篩選</h2></div>
+      <div class="card-body filters">
+        <input id="limit" type="number" min="1" max="200" value="50" placeholder="limit" />
+        <input id="providerId" placeholder="providerId" />
+        <select id="level">
+          <option value="">level: 全部</option>
+          <option>trusted</option><option>normal</option><option>review</option><option>high_risk</option><option>unscored</option>
+        </select>
+        <select id="support">
+          <option value="">support: 全部</option>
+          <option>supported</option><option>unknown</option><option>unsupported</option>
+        </select>
+        <select id="label">
+          <option value="">label: 全部</option>
+          <option>legit</option><option>abuse</option><option>needs_review</option>
+        </select>
+        <select id="action">
+          <option value="">action: 全部</option>
+          <option>allow</option><option>challenge</option><option>restrict</option>
+        </select>
+        <input id="clientProfile" placeholder="clientProfile" />
+        <input id="serverProfile" placeholder="serverProfile" />
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="card-head"><h2>事件列表</h2><span id="listMeta" class="muted"></span></div>
+        <div class="card-body"><div id="list" class="list"></div></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>事件詳情</h2><span id="detailMeta" class="muted"></span></div>
+        <div class="card-body">
+          <div id="emptyState" class="muted">尚未選取事件。</div>
+          <div id="detail" style="display:none;">
+            <div class="detail-grid" id="detailGrid"></div>
+            <div class="label-box">
+              <div class="label-row">
+                <select id="labelValue">
+                  <option value="legit">legit</option>
+                  <option value="abuse">abuse</option>
+                  <option value="needs_review">needs_review</option>
+                </select>
+                <input id="labelReviewer" placeholder="reviewer (例如 manual)" value="manual" />
+                <button id="saveLabelBtn" class="primary">送出標記</button>
+              </div>
+              <textarea id="labelNotes" rows="3" placeholder="notes"></textarea>
+              <div class="muted" id="labelStatus"></div>
+            </div>
+            <h3>Raw Event</h3>
+            <pre id="rawEvent"></pre>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const state = { items: [], selected: null, selectedEvent: null };
+
+    const els = {
+      list: document.getElementById('list'),
+      listMeta: document.getElementById('listMeta'),
+      detailMeta: document.getElementById('detailMeta'),
+      emptyState: document.getElementById('emptyState'),
+      detail: document.getElementById('detail'),
+      detailGrid: document.getElementById('detailGrid'),
+      rawEvent: document.getElementById('rawEvent'),
+      labelValue: document.getElementById('labelValue'),
+      labelReviewer: document.getElementById('labelReviewer'),
+      labelNotes: document.getElementById('labelNotes'),
+      labelStatus: document.getElementById('labelStatus'),
+      saveLabelBtn: document.getElementById('saveLabelBtn'),
+      reloadBtn: document.getElementById('reloadBtn'),
+      seedDemoBtn: document.getElementById('seedDemoBtn'),
+      seedStatus: document.getElementById('seedStatus'),
+      limit: document.getElementById('limit'),
+      providerId: document.getElementById('providerId'),
+      level: document.getElementById('level'),
+      support: document.getElementById('support'),
+      label: document.getElementById('label'),
+      action: document.getElementById('action'),
+      clientProfile: document.getElementById('clientProfile'),
+      serverProfile: document.getElementById('serverProfile'),
+    };
+
+    function fmt(v) { return JSON.stringify(v, null, 2); }
+    function esc(v) { return String(v ?? '').replace(/[&<>\"]/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+    function pillClass(summary) {
+      if (summary.level === 'high_risk') return 'danger';
+      if (summary.level === 'review') return 'warn';
+      return 'ok';
+    }
+    function buildQuery() {
+      const params = new URLSearchParams();
+      for (const key of ['limit','providerId','level','support','label','action','clientProfile','serverProfile']) {
+        const value = els[key].value.trim();
+        if (!value) continue;
+        params.set(key === 'support' ? 'browserSupportLevel' : key, value);
+      }
+      return params.toString();
+    }
+
+    async function seedDemo() {
+      els.seedDemoBtn.disabled = true;
+      els.seedStatus.textContent = '產生中…';
+      try {
+        const res = await fetch('/api/review/seed-demo', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ reset: true, reviewer: 'risk_review_ui' }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+          throw new Error(data?.error?.message || '產生示範資料失敗');
+        }
+        els.seedStatus.textContent = `已建立 ${data.count ?? 0} 筆示範資料`;
+        state.selected = null;
+        await loadEvents();
+      } catch (error) {
+        els.seedStatus.textContent = error instanceof Error ? error.message : String(error);
+      } finally {
+        els.seedDemoBtn.disabled = false;
+      }
+    }
+    async function loadEvents() {
+      const res = await fetch(`/api/review/events?${buildQuery()}`);
+      const data = await res.json();
+      state.items = data.items || [];
+      els.listMeta.textContent = `顯示 ${state.items.length} / 掃描 ${data.scannedEvents ?? 0}`;
+      renderList();
+      if (state.selected && state.items.some((item) => item.eventId === state.selected)) {
+        await loadEventDetail(state.selected);
+      } else {
+        clearDetail();
+      }
+    }
+    function renderList() {
+      els.list.innerHTML = state.items.map((item) => `
+        <div class="event ${item.eventId === state.selected ? 'active' : ''}" data-event-id="${esc(item.eventId)}">
+          <h3>${esc(item.eventId)}</h3>
+          <div class="sub">
+            <span>${esc(item.receivedAt)}</span>
+            <span>provider: ${esc(item.providerId)}</span>
+            <span>score: ${esc(item.totalRiskScore)}</span>
+          </div>
+          <div class="pill-row">
+            <span class="pill ${pillClass(item)}">${esc(item.level)}</span>
+            <span class="pill">${esc(item.browserSupportLevel)}</span>
+            <span class="pill">${esc(item.clientProfile)} → ${esc(item.serverProfile)}</span>
+            <span class="pill">${esc(item.action)}</span>
+            ${item.label ? `<span class="pill">label:${esc(item.label)}</span>` : ''}
+          </div>
+        </div>
+      `).join('');
+      els.list.querySelectorAll('.event').forEach((node) => {
+        node.addEventListener('click', () => loadEventDetail(node.dataset.eventId));
+      });
+    }
+    function clearDetail() {
+      state.selected = null;
+      state.selectedEvent = null;
+      els.detail.style.display = 'none';
+      els.emptyState.style.display = 'block';
+      els.detailMeta.textContent = '';
+      renderList();
+    }
+    function kv(key, value) {
+      return `<div class="kv"><div class="k">${esc(key)}</div><div class="v">${esc(value)}</div></div>`;
+    }
+    async function loadEventDetail(eventId) {
+      state.selected = eventId;
+      const res = await fetch(`/api/review/events/${encodeURIComponent(eventId)}?raw=1`);
+      const data = await res.json();
+      if (!data.ok) {
+        els.labelStatus.textContent = data?.error?.message || '載入失敗';
+        return;
+      }
+      state.selectedEvent = data;
+      const s = data.summary;
+      els.emptyState.style.display = 'none';
+      els.detail.style.display = 'block';
+      els.detailMeta.textContent = `${s.eventId} @ ${s.filePath}:${s.lineNumber}`;
+      els.detailGrid.innerHTML = [
+        kv('providerId', s.providerId),
+        kv('conversationId', s.conversationId),
+        kv('score', s.totalRiskScore),
+        kv('level', s.level),
+        kv('browserSupportLevel', s.browserSupportLevel),
+        kv('clientProfile', s.clientProfile),
+        kv('serverProfile', s.serverProfile),
+        kv('action', s.action),
+        kv('topRuleIds', (s.topRuleIds || []).join(', ')),
+        kv('guardrails', (s.guardrails || []).join(', ')),
+        kv('label', s.label || ''),
+        kv('reviewer', s.reviewer || ''),
+      ].join('');
+      els.labelValue.value = s.label || 'legit';
+      els.labelReviewer.value = s.reviewer || 'manual';
+      els.labelNotes.value = s.notes || '';
+      els.rawEvent.textContent = fmt(data.event);
+      els.labelStatus.textContent = '';
+      renderList();
+    }
+    async function saveLabel() {
+      if (!state.selected) return;
+      els.saveLabelBtn.disabled = true;
+      els.labelStatus.textContent = '送出中…';
+      try {
+        const res = await fetch('/api/review/labels', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            eventId: state.selected,
+            label: els.labelValue.value,
+            reviewer: els.labelReviewer.value,
+            notes: els.labelNotes.value,
+          }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          els.labelStatus.textContent = data?.error?.message || '標記失敗';
+          return;
+        }
+        els.labelStatus.textContent = `已標記：${data.record.label}`;
+        await loadEvents();
+        await loadEventDetail(state.selected);
+      } catch (error) {
+        els.labelStatus.textContent = error?.message || '標記失敗';
+      } finally {
+        els.saveLabelBtn.disabled = false;
+      }
+    }
+    els.reloadBtn.addEventListener('click', loadEvents);
+    els.seedDemoBtn.addEventListener('click', seedDemo);
+    els.saveLabelBtn.addEventListener('click', saveLabel);
+    ['providerId','level','support','label','action','clientProfile','serverProfile','limit'].forEach((id) => {
+      els[id].addEventListener('change', loadEvents);
+    });
+    loadEvents();
+  </script>
+</body>
+</html>

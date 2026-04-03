@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "risk-eval-request.v1",
+  "provider": {
+    "providerId": "provider_demo"
+  },
+  "conversation": {
+    "conversationId": "anon_conv_demo",
+    "channel": "web_dm",
+    "isFirstMessage": true
+  },
+  "page": {
+    "path": "/dm/provider_demo",
+    "title": "匿名私訊"
+  },
+  "context": {
+    "entryPoint": "provider_profile",
+    "clientTs": "2026-04-03T00:00:00.000Z"
+  },
+  "client": {
+    "collector": "triomark",
+    "version": "0.1.0",
+    "collectedAt": "2026-04-03T00:00:00.000Z",
+    "client": {
+      "composite": "replace-me",
+      "stableComposite": "replace-me",
+      "unstableComposite": "replace-me",
+      "components": {
+        "system": {
+          "id": "system",
+          "hash": "replace-me",
+          "unstable": false,
+          "value": "{\"supported\":true,\"browser\":{\"name\":\"Chrome\"},\"mobile\":false}"
+        }
+      }
+    },
+    "groupedComponents": {}
+  }
+}

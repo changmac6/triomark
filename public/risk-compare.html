@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TrioMark Rule Compare</title>
+  <style>
+    :root {--bg:#0b1220;--panel:#0f172a;--panel2:#111c34;--border:#22304a;--text:#e5e7eb;--muted:#93a4c3;--accent:#60a5fa;--danger:#ef4444;--warn:#f59e0b;--ok:#10b981;}
+    *{box-sizing:border-box} html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    .topbar{position:sticky;top:0;z-index:10;background:rgba(11,18,32,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+    .topinner{max-width:1560px;margin:0 auto;padding:14px 18px;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center}
+    .title h1{margin:0;font-size:22px}.title .meta{font-size:13px;color:var(--muted);margin-top:4px}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+    input,select,button{font:inherit;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);padding:9px 11px}
+    button{cursor:pointer}.primary{background:#1d4ed8}
+    .wrap{max-width:1560px;margin:0 auto;padding:16px}
+    .filters,.stats,.grid{display:grid;gap:14px}.filters{grid-template-columns:repeat(7,minmax(0,1fr));margin-bottom:16px}.stats{grid-template-columns:repeat(6,minmax(0,1fr));margin-bottom:16px}.grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+    .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:18px;overflow:hidden}
+    .card-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .card-head h2{margin:0;font-size:17px}.card-body{padding:14px 16px}
+    .stat{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:16px;padding:14px}.stat .k{font-size:12px;color:var(--muted);margin-bottom:8px}.stat .v{font-size:24px;font-weight:700}
+    .table{width:100%;border-collapse:collapse}.table th,.table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left;font-size:13px;vertical-align:top}
+    .pill{display:inline-flex;gap:6px;align-items:center;padding:4px 9px;border-radius:999px;background:rgba(29,78,216,.22);border:1px solid rgba(96,165,250,.28);font-size:12px;margin:3px 6px 3px 0}.pill.warn{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.35)} .pill.danger{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.35)} .pill.ok{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.35)}
+    .list{display:grid;gap:10px}.item{border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px;background:rgba(255,255,255,.02)}.item h3{margin:0 0 6px;font-size:14px}.sub{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    @media (max-width:1200px){.filters{grid-template-columns:repeat(3,minmax(0,1fr))}.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.grid{grid-template-columns:1fr}}
+    @media (max-width:700px){.filters,.stats{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="topbar"><div class="topinner">
+    <div class="title"><h1>TrioMark Rule Compare</h1><div class="meta">同一批事件直接比較穩定版與候選版，觀察誤殺/漏抓是否改善。</div></div>
+    <div class="toolbar">
+      <button id="reloadBtn" class="primary">重新比較</button>
+      <a href="/risk-metrics.html"><button type="button">前往 Metrics</button></a>
+      <a href="/risk-review.html"><button type="button">前往 Review</button></a>
+      <a href="/triomark-demo.html"><button type="button">前往單次評分</button></a>
+    </div>
+  </div></div>
+  <div class="wrap">
+    <div class="filters">
+      <select id="baseVariant"></select>
+      <select id="candidateVariant"></select>
+      <input id="providerId" placeholder="providerId" />
+      <select id="label"><option value="">label: 全部</option><option>legit</option><option>abuse</option><option>needs_review</option></select>
+      <input id="clientProfile" placeholder="clientProfile" />
+      <input id="serverProfile" placeholder="serverProfile" />
+      <input id="level" placeholder="level (optional)" />
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">事件總數</div><div class="v" id="statTotal">-</div></div>
+      <div class="stat"><div class="k">平均分數變化</div><div class="v" id="statDelta">-</div></div>
+      <div class="stat"><div class="k">誤殺改善</div><div class="v" id="statFpReduced">-</div></div>
+      <div class="stat"><div class="k">誤殺增加</div><div class="v" id="statFpWorse">-</div></div>
+      <div class="stat"><div class="k">漏抓改善</div><div class="v" id="statFnReduced">-</div></div>
+      <div class="stat"><div class="k">漏抓增加</div><div class="v" id="statFnWorse">-</div></div>
+    </div>
+    <div class="grid">
+      <section class="card"><div class="card-head"><h2>版本資訊</h2></div><div class="card-body"><div id="variants"></div></div></section>
+      <section class="card"><div class="card-head"><h2>變更統計</h2></div><div class="card-body"><div><strong>Level 變化</strong><div id="levelChanges"></div></div><div style="margin-top:14px"><strong>Action 變化</strong><div id="actionChanges"></div></div><div style="margin-top:14px"><strong>Support 變化</strong><div id="supportChanges"></div></div></div></section>
+      <section class="card"><div class="card-head"><h2>誤殺改善（legit）</h2></div><div class="card-body"><div class="list" id="fpReduced"></div></div></section>
+      <section class="card"><div class="card-head"><h2>漏抓改善（abuse）</h2></div><div class="card-body"><div class="list" id="fnReduced"></div></div></section>
+      <section class="card" style="grid-column:1 / -1;"><div class="card-head"><h2>分數/等級有變化的事件</h2></div><div class="card-body"><div class="list" id="changedItems"></div></div></section>
+    </div>
+  </div>
+  <script>
+    const els = {
+      baseVariant: document.getElementById('baseVariant'),
+      candidateVariant: document.getElementById('candidateVariant'),
+      providerId: document.getElementById('providerId'),
+      label: document.getElementById('label'),
+      clientProfile: document.getElementById('clientProfile'),
+      serverProfile: document.getElementById('serverProfile'),
+      level: document.getElementById('level'),
+      reloadBtn: document.getElementById('reloadBtn'),
+      statTotal: document.getElementById('statTotal'),
+      statDelta: document.getElementById('statDelta'),
+      statFpReduced: document.getElementById('statFpReduced'),
+      statFpWorse: document.getElementById('statFpWorse'),
+      statFnReduced: document.getElementById('statFnReduced'),
+      statFnWorse: document.getElementById('statFnWorse'),
+      variants: document.getElementById('variants'),
+      levelChanges: document.getElementById('levelChanges'),
+      actionChanges: document.getElementById('actionChanges'),
+      supportChanges: document.getElementById('supportChanges'),
+      fpReduced: document.getElementById('fpReduced'),
+      fnReduced: document.getElementById('fnReduced'),
+      changedItems: document.getElementById('changedItems'),
+    };
+
+    function qs() {
+      const params = new URLSearchParams();
+      if (els.baseVariant.value) params.set('base', els.baseVariant.value);
+      if (els.candidateVariant.value) params.set('candidate', els.candidateVariant.value);
+      if (els.providerId.value) params.set('providerId', els.providerId.value.trim());
+      if (els.label.value) params.set('label', els.label.value);
+      if (els.clientProfile.value) params.set('clientProfile', els.clientProfile.value.trim());
+      if (els.serverProfile.value) params.set('serverProfile', els.serverProfile.value.trim());
+      if (els.level.value) params.set('level', els.level.value.trim());
+      return params.toString();
+    }
+
+    function pill(text, cls='') { return `<span class="pill ${cls}">${text}</span>`; }
+    function renderCountMap(map) { return Object.entries(map || {}).map(([k,v]) => pill(`${k}: ${v}`)).join('') || '<div class="sub">無</div>'; }
+    function renderVariantBox(variant) {
+      return `<div class="item"><h3>${variant.label} <span class="mono">${variant.id}</span></h3><div class="sub"><span>${variant.description}</span></div><div class="sub"><span>weights: b=${variant.weights.browser}, p=${variant.weights.protocol}, c=${variant.weights.consistency}</span></div><div class="sub"><span>caps: unsupported=${variant.guardrails.unsupportedCap}, unknown=${variant.guardrails.unknownCap}, criticalMismatch=${variant.guardrails.criticalMismatchCap}</span></div></div>`;
+    }
+    function renderItem(item) {
+      return `<div class="item"><h3>${item.eventId || 'no-event-id'}</h3><div class="sub"><span>${item.clientProfile} → ${item.serverProfile}</span><span>${item.levelTransition}</span><span>${item.actionTransition}</span><span>Δ ${item.scoreDelta}</span>${item.label ? `<span>label=${item.label}</span>` : ''}</div><div>${(item.base.guardrails || []).map(g => pill('base:'+g, 'warn')).join('')} ${(item.candidate.guardrails || []).map(g => pill('cand:'+g, 'danger')).join('')}</div><div class="sub"><span>base=${item.base.totalRiskScore}</span><span>candidate=${item.candidate.totalRiskScore}</span><span>rules=${(item.candidate.topRuleIds || []).join(', ') || '-'}</span></div></div>`;
+    }
+    async function loadVariants() {
+      const res = await fetch('/api/review/variants');
+      const data = await res.json();
+      const options = (data.variants || []).map(v => `<option value="${v.id}">${v.label} (${v.id})</option>`).join('');
+      els.baseVariant.innerHTML = options;
+      els.candidateVariant.innerHTML = options;
+      els.baseVariant.value = 'stable_v1';
+      els.candidateVariant.value = 'candidate_consistency_v2';
+    }
+    async function loadComparison() {
+      els.reloadBtn.disabled = true; els.reloadBtn.textContent = '比較中…';
+      try {
+        const res = await fetch(`/api/review/compare-rules?${qs()}`);
+        const payload = await res.json();
+        const data = payload.comparison;
+        const summary = data.summary || {};
+        els.statTotal.textContent = String(summary.total ?? 0);
+        els.statDelta.textContent = String(summary.scoreDeltaAvg ?? 0);
+        els.statFpReduced.textContent = String(summary.labeledFalsePositiveReduction ?? 0);
+        els.statFpWorse.textContent = String(summary.labeledFalsePositiveIncrease ?? 0);
+        els.statFnReduced.textContent = String(summary.labeledFalseNegativeReduction ?? 0);
+        els.statFnWorse.textContent = String(summary.labeledFalseNegativeIncrease ?? 0);
+        els.variants.innerHTML = [data.variants?.base, data.variants?.candidate].filter(Boolean).map(renderVariantBox).join('');
+        els.levelChanges.innerHTML = renderCountMap(summary.levelChanges);
+        els.actionChanges.innerHTML = renderCountMap(summary.actionChanges);
+        els.supportChanges.innerHTML = renderCountMap(summary.supportChanges);
+        els.fpReduced.innerHTML = (data.falsePositiveReduced || []).map(renderItem).join('') || '<div class="sub">無</div>';
+        els.fnReduced.innerHTML = (data.falseNegativeReduced || []).map(renderItem).join('') || '<div class="sub">無</div>';
+        els.changedItems.innerHTML = (data.changedItems || []).map(renderItem).join('') || '<div class="sub">無</div>';
+      } catch (error) {
+        els.changedItems.innerHTML = `<div class="item"><h3>載入失敗</h3><div class="sub">${String(error)}</div></div>`;
+      } finally {
+        els.reloadBtn.disabled = false; els.reloadBtn.textContent = '重新比較';
+      }
+    }
+    els.reloadBtn.addEventListener('click', loadComparison);
+    for (const key of ['baseVariant','candidateVariant','providerId','label','clientProfile','serverProfile','level']) {
+      els[key].addEventListener('change', loadComparison);
+    }
+    loadVariants().then(loadComparison);
+  </script>
+</body>
+</html>

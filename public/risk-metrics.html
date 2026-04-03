@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TrioMark Risk Metrics</title>
+  <style>
+    :root {
+      --bg:#0b1220;--panel:#0f172a;--panel2:#111c34;--border:#22304a;--text:#e5e7eb;--muted:#93a4c3;--accent:#60a5fa;--danger:#ef4444;--warn:#f59e0b;--ok:#10b981;
+    }
+    *{box-sizing:border-box} html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    .topbar{position:sticky;top:0;z-index:10;background:rgba(11,18,32,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+    .topinner{max-width:1560px;margin:0 auto;padding:14px 18px;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center}
+    .title h1{margin:0;font-size:22px}.title .meta{font-size:13px;color:var(--muted);margin-top:4px}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+    input,select,button{font:inherit;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);padding:9px 11px}
+    button{cursor:pointer}.primary{background:#1d4ed8}
+    .wrap{max-width:1560px;margin:0 auto;padding:16px}
+    .filters,.stats,.grid{display:grid;gap:14px}.filters{grid-template-columns:repeat(7,minmax(0,1fr));margin-bottom:16px}.stats{grid-template-columns:repeat(6,minmax(0,1fr));margin-bottom:16px}.grid{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}
+    .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:18px;overflow:hidden}
+    .card-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .card-head h2{margin:0;font-size:17px}.card-body{padding:14px 16px}
+    .stat{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:16px;padding:14px}
+    .stat .k{font-size:12px;color:var(--muted);margin-bottom:8px}.stat .v{font-size:24px;font-weight:700}
+    .muted{color:var(--muted);font-size:12px}
+    .table{width:100%;border-collapse:collapse}.table th,.table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left;font-size:13px;vertical-align:top}
+    .pill{display:inline-flex;gap:6px;align-items:center;padding:4px 9px;border-radius:999px;background:rgba(29,78,216,.22);border:1px solid rgba(96,165,250,.28);font-size:12px;margin:3px 6px 3px 0}
+    .pill.warn{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.35)} .pill.danger{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.35)}
+    .list{display:grid;gap:10px}.item{border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px;background:rgba(255,255,255,.02)}
+    .item h3{margin:0 0 6px;font-size:14px}.sub{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    @media (max-width:1200px){.filters{grid-template-columns:repeat(3,minmax(0,1fr))}.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.grid{grid-template-columns:1fr}}
+    @media (max-width:700px){.filters,.stats{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topinner">
+      <div class="title">
+        <h1>TrioMark Risk Metrics</h1>
+        <div class="meta">看整體分布、白名單 profile 熱點、誤殺/漏抓候選。配合 <span class="mono">/api/review/metrics</span>。</div>
+      </div>
+      <div class="toolbar">
+        <button id="seedBtn">產生示範資料</button>
+        <button id="reloadBtn" class="primary">重新整理</button>
+        <a href="/risk-review.html"><button type="button">前往 Review</button></a>
+        <a href="/triomark-demo.html"><button type="button">前往單次評分</button></a>
+        <a href="/risk-compare.html"><button type="button">前往 Compare</button></a>
+      </div>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="filters">
+      <input id="providerId" placeholder="providerId" />
+      <select id="level"><option value="">level: 全部</option><option>trusted</option><option>normal</option><option>review</option><option>high_risk</option><option>unscored</option></select>
+      <select id="support"><option value="">support: 全部</option><option>supported</option><option>unknown</option><option>unsupported</option></select>
+      <select id="label"><option value="">label: 全部</option><option>legit</option><option>abuse</option><option>needs_review</option></select>
+      <input id="clientProfile" placeholder="clientProfile" />
+      <input id="serverProfile" placeholder="serverProfile" />
+      <input id="recentLimit" type="number" min="5" max="100" value="20" placeholder="recentLimit" />
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">事件總數</div><div class="v" id="statTotal">-</div></div>
+      <div class="stat"><div class="k">平均總分</div><div class="v" id="statAvg">-</div></div>
+      <div class="stat"><div class="k">平均 Browser</div><div class="v" id="statBrowser">-</div></div>
+      <div class="stat"><div class="k">平均 Protocol</div><div class="v" id="statProtocol">-</div></div>
+      <div class="stat"><div class="k">平均 Consistency</div><div class="v" id="statConsistency">-</div></div>
+      <div class="stat"><div class="k">校正訊號</div><div class="v" id="statLabels">-</div></div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="card-head"><h2>整體分布</h2><span id="metaInfo" class="muted"></span></div>
+        <div class="card-body">
+          <div id="counts"></div>
+        </div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>Top Guardrails / Rules</h2></div>
+        <div class="card-body">
+          <div><strong>Guardrails</strong><div id="guardrails"></div></div>
+          <div style="margin-top:14px"><strong>Rules</strong><div id="rules"></div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>白名單 Client Profile 熱點</h2></div>
+        <div class="card-body"><table class="table" id="profilesTable"></table></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>Server Profile 熱點</h2></div>
+        <div class="card-body"><table class="table" id="serversTable"></table></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>誤殺候選（legit 卻 review/high_risk）</h2></div>
+        <div class="card-body"><div class="list" id="falsePositives"></div></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>漏抓候選（abuse 卻 trusted/normal）</h2></div>
+        <div class="card-body"><div class="list" id="falseNegatives"></div></div>
+      </section>
+
+      <section class="card" style="grid-column:1 / -1;">
+        <div class="card-head"><h2>最近事件</h2></div>
+        <div class="card-body"><div class="list" id="recent"></div></div>
+      </section>
+    </div>
+  </div>
+  <script>
+    const els = {
+      providerId: document.getElementById('providerId'),
+      level: document.getElementById('level'),
+      support: document.getElementById('support'),
+      label: document.getElementById('label'),
+      clientProfile: document.getElementById('clientProfile'),
+      serverProfile: document.getElementById('serverProfile'),
+      recentLimit: document.getElementById('recentLimit'),
+      reloadBtn: document.getElementById('reloadBtn'),
+      seedBtn: document.getElementById('seedBtn'),
+      statTotal: document.getElementById('statTotal'),
+      statAvg: document.getElementById('statAvg'),
+      statBrowser: document.getElementById('statBrowser'),
+      statProtocol: document.getElementById('statProtocol'),
+      statConsistency: document.getElementById('statConsistency'),
+      statLabels: document.getElementById('statLabels'),
+      metaInfo: document.getElementById('metaInfo'),
+      counts: document.getElementById('counts'),
+      guardrails: document.getElementById('guardrails'),
+      rules: document.getElementById('rules'),
+      profilesTable: document.getElementById('profilesTable'),
+      serversTable: document.getElementById('serversTable'),
+      falsePositives: document.getElementById('falsePositives'),
+      falseNegatives: document.getElementById('falseNegatives'),
+      recent: document.getElementById('recent'),
+    };
+    function esc(v){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
+    function pill(text, cls=''){return `<span class="pill ${cls}">${esc(text)}</span>`}
+    function toQuery(){
+      const params=new URLSearchParams();
+      const mapping={providerId:'providerId',level:'level',support:'browserSupportLevel',label:'label',clientProfile:'clientProfile',serverProfile:'serverProfile',recentLimit:'recentLimit'};
+      for(const [id,key] of Object.entries(mapping)){
+        const value=els[id].value.trim();
+        if(value) params.set(key,value);
+      }
+      return params.toString();
+    }
+    function renderMapBlock(title,map){
+      const entries=Object.entries(map||{});
+      return `<div style="margin-bottom:10px"><div class="muted" style="margin-bottom:6px">${esc(title)}</div>${entries.length?entries.map(([k,v])=>pill(`${k}: ${v}`)).join(' '):'<span class="muted">無</span>'}</div>`;
+    }
+    function renderTop(entries, kind=''){ return entries?.length ? entries.map(x=>pill(`${x.key||x.id}: ${x.count}`, kind)).join(' ') : '<span class="muted">無</span>'; }
+    function renderCandidate(item){
+      if(!item) return '';
+      const warn=item.level==='review'?'warn':item.level==='high_risk'?'danger':'';
+      return `<div class="item"><h3><a href="/risk-review.html">${esc(item.eventId)}</a></h3><div class="sub"><span>${esc(item.receivedAt)}</span><span>score:${esc(item.totalRiskScore)}</span><span>${esc(item.clientProfile)} → ${esc(item.serverProfile)}</span></div><div>${pill(item.level,warn)} ${pill(item.browserSupportLevel)} ${pill(item.action)} ${(item.topRuleIds||[]).slice(0,4).map(id=>pill(id,'warn')).join(' ')} ${(item.guardrails||[]).slice(0,4).map(id=>pill(id,'danger')).join(' ')}</div></div>`;
+    }
+    function renderTable(el, rows, type='client'){
+      const headers= type==='client' ? ['profile','total','scoreAvg','scoreMin','review/high','lowScore','topRules','topGuardrails'] : ['profile','total','scoreAvg','scoreMin','actions','topRules','topGuardrails'];
+      const head=`<tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>`;
+      const body=rows.length?rows.map(row=>`<tr>
+        <td>${esc(row.profile)}</td>
+        <td>${esc(row.total)}</td>
+        <td>${esc(row.scoreAvg)}</td>
+        <td>${esc(row.scoreMin)}</td>
+        <td>${type==='client'?`${esc(row.levels?.review||0)}/${esc(row.levels?.high_risk||0)}`:esc(Object.entries(row.actions||{}).map(([k,v])=>`${k}:${v}`).join(', '))}</td>
+        <td>${(row.topRules||[]).slice(0,3).map(x=>pill(`${x.key||x.id}:${x.count}`)).join(' ')}</td>
+        <td>${(row.topGuardrails||[]).slice(0,3).map(x=>pill(`${x.key||x.id}:${x.count}`,'danger')).join(' ')}</td>
+      </tr>`).join(''):`<tr><td colspan="8" class="muted">無資料</td></tr>`;
+      el.innerHTML=head+body;
+    }
+    async function seedDemo(){
+      els.seedBtn.disabled=true;
+      try{
+        const res=await fetch('/api/review/seed-demo',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({reset:true,reviewer:'risk_metrics_ui'})});
+        const data=await res.json();
+        if(!res.ok||data.ok===false) throw new Error(data?.error?.message||'seed 失敗');
+        await loadMetrics();
+      }catch(error){alert(error instanceof Error?error.message:String(error));}
+      finally{els.seedBtn.disabled=false;}
+    }
+    async function loadMetrics(){
+      const res=await fetch(`/api/review/metrics?${toQuery()}`);
+      const data=await res.json();
+      if(!res.ok||data.ok===false) throw new Error(data?.error?.message||'載入 metrics 失敗');
+      els.statTotal.textContent=data.overview.total;
+      els.statAvg.textContent=data.overview.scoreAvg;
+      els.statBrowser.textContent=data.overview.browserScoreAvg;
+      els.statProtocol.textContent=data.overview.protocolScoreAvg;
+      els.statConsistency.textContent=data.overview.consistencyScoreAvg;
+      els.statLabels.textContent=Object.values(data.counts.labels||{}).reduce((a,b)=>a+b,0);
+      els.metaInfo.textContent=`掃描 ${data.scannedEvents} 筆 / ${data.scannedFiles} 檔`;
+      els.counts.innerHTML=[
+        renderMapBlock('levels', data.counts.levels),
+        renderMapBlock('support', data.counts.supportLevels),
+        renderMapBlock('actions', data.counts.actions),
+        renderMapBlock('clientProfiles', data.counts.clientProfiles),
+        renderMapBlock('serverProfiles', data.counts.serverProfiles),
+        renderMapBlock('labels', data.counts.labels),
+      ].join('');
+      els.guardrails.innerHTML=renderTop(data.counts.topGuardrails,'danger');
+      els.rules.innerHTML=renderTop(data.counts.topRules,'warn');
+      renderTable(els.profilesTable, data.profileHotspots||[], 'client');
+      renderTable(els.serversTable, data.serverHotspots||[], 'server');
+      els.falsePositives.innerHTML=(data.falsePositives||[]).length?(data.falsePositives||[]).map(renderCandidate).join(''):'<div class="muted">目前無已標記誤殺候選</div>';
+      els.falseNegatives.innerHTML=(data.falseNegatives||[]).length?(data.falseNegatives||[]).map(renderCandidate).join(''):'<div class="muted">目前無已標記漏抓候選</div>';
+      els.recent.innerHTML=(data.recent||[]).length?(data.recent||[]).map(renderCandidate).join(''):'<div class="muted">目前無事件</div>';
+    }
+    els.reloadBtn.addEventListener('click',()=>loadMetrics().catch(err=>alert(err.message||String(err))));
+    els.seedBtn.addEventListener('click',seedDemo);
+    for(const key of ['providerId','level','support','label','clientProfile','serverProfile','recentLimit']){
+      els[key].addEventListener('change',()=>loadMetrics().catch(err=>alert(err.message||String(err))));
+      if(els[key].tagName==='INPUT') els[key].addEventListener('keydown',(e)=>{ if(e.key==='Enter') loadMetrics().catch(err=>alert(err.message||String(err))); });
+    }
+    loadMetrics().catch(err=>alert(err.message||String(err)));
+  </script>
+</body>
+</html>

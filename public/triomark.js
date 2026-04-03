@@ -111,86 +111,14 @@ function stableStringify(value) {
 
 // src/utils/component.ts
 async function buildComponentResult(id, data, options = {}) {
-  const startedAt = options.startedAt ?? Date.now();
-  const durationMs = Math.max(0, Date.now() - startedAt);
-  const mappedStability = typeof getComponentStability === "function" ? getComponentStability(id) : undefined;
-  const stability = options.stability ?? mappedStability ?? (options.unstable ? "volatile" : "stable");
-  const status = options.status ?? inferComponentStatus(data);
-  const error = options.error ?? extractComponentError(data, status);
-  const value = normalizeComponentValue(data, status, error);
-  const stableValue = stableStringify(value);
-  const hash = await hashShort(stableValue);
+  const value = stableStringify(data);
+  const hash = await hashShort(value);
   return {
     id,
-    status,
-    stability,
-    durationMs,
     value,
     hash,
-    error,
-    unstable: options.unstable ?? stability !== "stable"
+    unstable: options.unstable ?? false
   };
-}
-function inferComponentStatus(data) {
-  if (data && typeof data === "object" && "supported" in data && data.supported === false) {
-    return "unsupported";
-  }
-  if (data && typeof data === "object" && "reason" in data && data.reason) {
-    return "error";
-  }
-  return "ok";
-}
-function extractComponentError(data, status) {
-  if (status === "ok" || status === "unsupported") {
-    return null;
-  }
-  if (data && typeof data === "object" && "reason" in data && data.reason) {
-    return String(data.reason);
-  }
-  return null;
-}
-function normalizeComponentValue(data, status, error) {
-  if (status === "ok") {
-    return data;
-  }
-  return {
-    ...(data && typeof data === "object" ? data : {}),
-    error
-  };
-}
-
-// src/utils/async.ts
-function wait(durationMs, resolveWith) {
-  return new Promise((resolve) => setTimeout(resolve, durationMs, resolveWith));
-}
-function releaseEventLoop() {
-  return new Promise((resolve) => {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => resolve();
-    channel.port2.postMessage(null);
-  });
-}
-async function mapWithBreaks(items, callback, loopReleaseInterval = 16) {
-  const results = Array(items.length);
-  let lastLoopReleaseTime = Date.now();
-  for (let i = 0; i < items.length; ++i) {
-    results[i] = callback(items[i], i);
-    const now = Date.now();
-    if (now >= lastLoopReleaseTime + loopReleaseInterval) {
-      lastLoopReleaseTime = now;
-      await releaseEventLoop();
-    }
-  }
-  return results;
-}
-async function withTimeout(promiseFactory, timeoutMs, timeoutValue) {
-  let timeoutId;
-  return await Promise.race([
-    promiseFactory(),
-    new Promise((resolve) => {
-      timeoutId = setTimeout(() => resolve(timeoutValue), timeoutMs);
-    })
-  ]).finally(() => clearTimeout(timeoutId));
 }
 
 // src/components/applePay.ts
@@ -835,6 +763,7 @@ function collectDomRect() {
         emojiSet.set(key, span.textContent ?? "");
       }
     }
+
     return {
       supported: true,
       elementClientRects,
@@ -2702,346 +2631,6 @@ function collectIceCandidate(connection, timeoutMs) {
   });
 }
 
-// src/components/userAgentHighEntropy.ts
-async function getUserAgentHighEntropyFingerprint() {
-  const startedAt = Date.now();
-  const data = await collectUserAgentHighEntropy();
-  return buildComponentResult("userAgentHighEntropy", data, { startedAt, stability: "semi_stable" });
-}
-async function collectUserAgentHighEntropy() {
-  if (typeof navigator === "undefined") {
-    return { supported: false, reason: "navigator-unavailable" };
-  }
-  const uaData = navigator.userAgentData;
-  if (!uaData) {
-    return { supported: false, reason: "user-agent-data-unavailable" };
-  }
-  const result = {
-    supported: true,
-    brands: uaData.brands ?? [],
-    mobile: uaData.mobile ?? null,
-    platform: uaData.platform ?? null,
-    architecture: null,
-    bitness: null,
-    model: null,
-    platformVersion: null,
-    fullVersionList: [],
-    wow64: null,
-    formFactors: []
-  };
-  if (typeof uaData.getHighEntropyValues !== "function") {
-    return result;
-  }
-  try {
-    const highEntropy = await withTimeout(
-      () => uaData.getHighEntropyValues([
-        "architecture",
-        "bitness",
-        "model",
-        "platformVersion",
-        "fullVersionList",
-        "wow64",
-        "formFactors"
-      ]),
-      1500,
-      null
-    );
-    if (!highEntropy) {
-      return { ...result, reason: "user-agent-high-entropy-timeout" };
-    }
-    result.architecture = highEntropy.architecture ?? null;
-    result.bitness = highEntropy.bitness ?? null;
-    result.model = highEntropy.model ?? null;
-    result.platformVersion = highEntropy.platformVersion ?? null;
-    result.fullVersionList = highEntropy.fullVersionList ?? [];
-    result.wow64 = highEntropy.wow64 ?? null;
-    result.formFactors = highEntropy.formFactors ?? [];
-    return result;
-  } catch (error) {
-    return {
-      ...result,
-      reason: error instanceof Error ? error.message : "user-agent-high-entropy-error"
-    };
-  }
-}
-
-// src/components/storageEstimate.ts
-async function getStorageEstimateFingerprint() {
-  const startedAt = Date.now();
-  const data = await collectStorageEstimate();
-  return buildComponentResult("storageEstimate", data, { startedAt, stability: "semi_stable" });
-}
-async function collectStorageEstimate() {
-  if (typeof navigator === "undefined") {
-    return { supported: false, reason: "navigator-unavailable" };
-  }
-  const storage = navigator.storage;
-  if (!storage) {
-    return { supported: false, reason: "storage-unavailable" };
-  }
-  const result = {
-    supported: true,
-    quota: null,
-    usage: null,
-    usageDetails: null,
-    persisted: null
-  };
-  try {
-    if (typeof storage.estimate === "function") {
-      const estimate = await withTimeout(() => storage.estimate(), 1500, null);
-      result.quota = estimate?.quota ?? null;
-      result.usage = estimate?.usage ?? null;
-      result.usageDetails = estimate?.usageDetails ?? null;
-    }
-    if (typeof storage.persisted === "function") {
-      result.persisted = await withTimeout(() => storage.persisted(), 1000, null);
-    }
-    return result;
-  } catch (error) {
-    return {
-      ...result,
-      reason: error instanceof Error ? error.message : "storage-estimate-error"
-    };
-  }
-}
-
-// src/components/mediaDevices.ts
-async function getMediaDevicesFingerprint() {
-  const startedAt = Date.now();
-  const data = await collectMediaDevices();
-  return buildComponentResult("mediaDevices", data, { startedAt, stability: "semi_stable" });
-}
-async function collectMediaDevices() {
-  if (typeof navigator === "undefined") {
-    return { supported: false, reason: "navigator-unavailable" };
-  }
-  const mediaDevices = navigator.mediaDevices;
-  if (!mediaDevices || typeof mediaDevices.enumerateDevices !== "function") {
-    return { supported: false, reason: "enumerate-devices-unavailable" };
-  }
-  try {
-    const devices = await withTimeout(() => mediaDevices.enumerateDevices(), 2000, []);
-    const kinds = { audioinput: 0, audiooutput: 0, videoinput: 0 };
-    let hasLabels = false;
-    let hasDeviceIds = false;
-    let hasGroupIds = false;
-    for (const device of devices) {
-      if (device.kind in kinds) {
-        kinds[device.kind] += 1;
-      }
-      if (device.label) hasLabels = true;
-      if (device.deviceId) hasDeviceIds = true;
-      if (device.groupId) hasGroupIds = true;
-    }
-    return {
-      supported: true,
-      audioinputCount: kinds.audioinput,
-      audiooutputCount: kinds.audiooutput,
-      videoinputCount: kinds.videoinput,
-      deviceCount: devices.length,
-      hasLabels,
-      hasDeviceIds,
-      hasGroupIds
-    };
-  } catch (error) {
-    return {
-      supported: true,
-      audioinputCount: 0,
-      audiooutputCount: 0,
-      videoinputCount: 0,
-      deviceCount: 0,
-      hasLabels: false,
-      hasDeviceIds: false,
-      hasGroupIds: false,
-      reason: error instanceof Error ? error.message : "media-devices-error"
-    };
-  }
-}
-
-// src/components/environment.ts
-async function getEnvironmentFingerprint() {
-  const startedAt = Date.now();
-  const data = collectEnvironment();
-  return buildComponentResult("environment", data, { startedAt, stability: "volatile", unstable: true });
-}
-function collectEnvironment() {
-  if (typeof window === "undefined" || typeof document === "undefined") {
-    return { supported: false, reason: "environment-unavailable" };
-  }
-  return {
-    supported: true,
-    isSecureContext: globalThis.isSecureContext ?? false,
-    crossOriginIsolated: globalThis.crossOriginIsolated ?? false,
-    navigatorOnLine: typeof navigator !== "undefined" ? navigator.onLine ?? null : null,
-    visibilityState: document.visibilityState ?? null,
-    prerendering: document.prerendering ?? null,
-    location: {
-      protocol: window.location?.protocol ?? null,
-      host: window.location?.host ?? null,
-      pathname: window.location?.pathname ?? null
-    },
-    origin: window.origin ?? null
-  };
-}
-
-// src/components/automationSignals.ts
-async function getAutomationSignalsFingerprint() {
-  const startedAt = Date.now();
-  const data = collectAutomationSignals();
-  return buildComponentResult("automationSignals", data, { startedAt, stability: "volatile", unstable: true });
-}
-function collectAutomationSignals() {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return { supported: false, reason: "environment-unavailable" };
-  }
-  return {
-    supported: true,
-    webdriver: navigator.webdriver ?? null,
-    chromeObjectPresent: typeof window.chrome !== "undefined",
-    permissionsApiPresent: typeof navigator.permissions !== "undefined",
-    pluginsLength: navigator.plugins?.length ?? 0,
-    languagesLength: navigator.languages?.length ?? 0,
-    outerWidth: window.outerWidth ?? null,
-    outerHeight: window.outerHeight ?? null,
-    innerWidth: window.innerWidth ?? null,
-    innerHeight: window.innerHeight ?? null,
-    notificationPermission: typeof Notification !== "undefined" ? Notification.permission ?? null : null,
-    hasCallPhantom: typeof window.callPhantom === "function",
-    hasEmit: typeof window.emit === "function",
-    hasSpawn: typeof window.spawn === "function",
-    chromeRuntimePresent: Boolean(window.chrome?.runtime),
-    pdfViewerEnabled: typeof navigator.pdfViewerEnabled === "boolean" ? navigator.pdfViewerEnabled : null
-  };
-}
-
-// src/components/webgpu.ts
-async function getWebgpuFingerprint() {
-  const startedAt = Date.now();
-  const data = await collectWebgpu();
-  return buildComponentResult("webgpu", data, { startedAt, stability: "volatile", unstable: true });
-}
-async function collectWebgpu() {
-  if (typeof navigator === "undefined") {
-    return { supported: false, reason: "navigator-unavailable" };
-  }
-  const gpu = navigator.gpu;
-  if (!gpu || typeof gpu.requestAdapter !== "function") {
-    return { supported: false, reason: "webgpu-unavailable" };
-  }
-  try {
-    const adapter = await withTimeout(() => gpu.requestAdapter(), 2000, null);
-    if (!adapter) {
-      return { supported: false, reason: "webgpu-adapter-unavailable" };
-    }
-    const featureList = adapter.features ? Array.from(adapter.features.values()).sort() : [];
-    const limitsSummary = adapter.limits ? {
-      maxBindGroups: adapter.limits.maxBindGroups ?? null,
-      maxTextureDimension2D: adapter.limits.maxTextureDimension2D ?? null,
-      maxBufferSize: adapter.limits.maxBufferSize ?? null,
-      maxComputeInvocationsPerWorkgroup: adapter.limits.maxComputeInvocationsPerWorkgroup ?? null
-    } : null;
-    let adapterInfo = null;
-    try {
-      const info = typeof adapter.requestAdapterInfo === "function" ? await adapter.requestAdapterInfo() : adapter.info;
-      adapterInfo = info ? {
-        vendor: info.vendor ?? null,
-        architecture: info.architecture ?? null,
-        device: info.device ?? null,
-        description: info.description ?? null
-      } : null;
-    } catch {
-      adapterInfo = null;
-    }
-    return {
-      supported: true,
-      adapterInfo,
-      featureCount: featureList.length,
-      featureList,
-      limitsSummary
-    };
-  } catch (error) {
-    return {
-      supported: false,
-      reason: error instanceof Error ? error.message : "webgpu-error"
-    };
-  }
-}
-
-// src/components/webrtcExtended.ts
-async function getWebrtcExtendedFingerprint() {
-  const startedAt = Date.now();
-  const data = await collectWebrtcExtended();
-  return buildComponentResult("webrtcExtended", data, { startedAt, stability: "volatile", unstable: true });
-}
-async function collectWebrtcExtended() {
-  if (typeof window === "undefined") {
-    return { supported: false, reason: "window-unavailable" };
-  }
-  const RTCPeerConnectionCtor = window.RTCPeerConnection ?? window.webkitRTCPeerConnection ?? window.mozRTCPeerConnection;
-  if (!RTCPeerConnectionCtor) {
-    return { supported: false, reason: "webrtc-unavailable" };
-  }
-  const connection = new RTCPeerConnectionCtor({ iceServers: [], iceCandidatePoolSize: 1 });
-  connection.createDataChannel("triomark-extended");
-  const candidateTypes = [];
-  let localDescription = null;
-  const collectPromise = new Promise((resolve) => {
-    const timeoutId = setTimeout(() => resolve(), 2500);
-    connection.addEventListener("icecandidate", (event) => {
-      const candidate = event.candidate?.candidate;
-      if (!candidate) {
-        return;
-      }
-      const match = candidate.match(/ typ ([a-zA-Z0-9]+)/);
-      if (match?.[1]) {
-        candidateTypes.push(match[1]);
-      }
-    });
-    connection.addEventListener("icegatheringstatechange", () => {
-      if (connection.iceGatheringState === "complete") {
-        clearTimeout(timeoutId);
-        resolve();
-      }
-    });
-  });
-  try {
-    const offer = await connection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-    localDescription = offer;
-    await connection.setLocalDescription(offer);
-    await collectPromise;
-    const counts = countStrings(candidateTypes);
-    return {
-      supported: true,
-      candidateTypes: Object.keys(counts).sort(),
-      candidateTypeCount: Object.keys(counts).length,
-      hostCandidateCount: counts.host ?? 0,
-      srflxCandidateCount: counts.srflx ?? 0,
-      relayCandidateCount: counts.relay ?? 0,
-      sdpLength: localDescription?.sdp?.length ?? 0
-    };
-  } catch (error) {
-    return {
-      supported: true,
-      candidateTypes: [],
-      candidateTypeCount: 0,
-      hostCandidateCount: 0,
-      srflxCandidateCount: 0,
-      relayCandidateCount: 0,
-      sdpLength: localDescription?.sdp?.length ?? 0,
-      reason: error instanceof Error ? error.message : "webrtc-extended-error"
-    };
-  } finally {
-    connection.close();
-  }
-}
-function countStrings(values) {
-  const counts = {};
-  for (const value of values) {
-    counts[value] = (counts[value] || 0) + 1;
-  }
-  return counts;
-}
-
 // src/index.ts
 var SERVER_MARKER = "server";
 var componentRegistry = {
@@ -3246,51 +2835,26 @@ export {
 
 
 // ---- TrioMark additions (derived from user-provided reference implementations) ----
-const TRIOMARK_VERSION = "0.2.0";
-const TRIOMARK_SCHEMA_VERSION = "1.0.0-phase2";
+const TRIOMARK_VERSION = "0.1.0";
 const TRIOMARK_REFERENCES = {
   fingerprintjs: "uploaded FingerprintJS v5.x reference",
   openclientid: "uploaded OpenClientID client reference",
   thumbmarkjs: "uploaded ThumbmarkJS reference"
 };
+
 const COMPONENT_GROUPS = {
-  environment: ["system", "userAgent", "userAgentHighEntropy", "platform", "vendor", "vendorFlavors", "cpuClass", "osCpu", "architecture", "environment"],
+  environment: ["system", "userAgent", "platform", "vendor", "vendorFlavors", "cpuClass", "osCpu", "architecture"],
   locale: ["languages", "locales", "timezone", "dateTimeLocale", "intl"],
   display: ["screen", "screenResolution", "screenFrame", "colorDepth", "colorGamut", "contrast", "forcedColors", "invertedColors", "monochrome", "hdr", "reducedMotion", "reducedTransparency"],
-  graphics: ["canvas", "svg", "webgl", "webGlBasics", "webGlExtensions", "domRect", "fontPreferences", "fonts", "mathml", "webgpu"],
+  graphics: ["canvas", "svg", "webgl", "webGlBasics", "webGlExtensions", "domRect", "fontPreferences", "fonts", "mathml"],
   audio: ["audio", "audioBaseLatency", "speech"],
-  storage: ["cookiesEnabled", "localStorage", "sessionStorage", "indexedDB", "openDatabase", "pdfViewerEnabled", "storageEstimate"],
-  capability: ["touchSupport", "sensors", "media", "mediaDevices", "clipboard", "applePay", "privateClickMeasurement", "automationSignals"],
+  storage: ["cookiesEnabled", "localStorage", "sessionStorage", "indexedDB", "openDatabase", "pdfViewerEnabled"],
+  capability: ["touchSupport", "sensors", "media", "clipboard", "applePay", "privateClickMeasurement"],
   runtime: ["hardware", "hardwareConcurrency", "deviceMemory", "math"],
   pluginPermission: ["plugins", "permissions", "domBlockers"],
-  networkLike: ["networkInformation", "webrtc", "webrtcExtended"]
+  networkLike: ["networkInformation", "webrtc"]
 };
-const STABLE_COMPONENT_IDS = ["architecture", "audio", "audioBaseLatency", "canvas", "colorDepth", "colorGamut", "cpuClass", "deviceMemory", "fontPreferences", "fonts", "hardware", "hardwareConcurrency", "hdr", "intl", "math", "mathml", "monochrome", "pdfViewerEnabled", "platform", "screen", "screenResolution", "svg", "vendor", "vendorFlavors", "webGlBasics", "webGlExtensions", "webgl"];
-const SEMI_STABLE_COMPONENT_IDS = ["dateTimeLocale", "languages", "locales", "media", "mediaDevices", "osCpu", "plugins", "speech", "storageEstimate", "system", "timezone", "touchSupport", "userAgent", "userAgentHighEntropy"];
-const VOLATILE_COMPONENT_IDS = ["applePay", "automationSignals", "clipboard", "cookiesEnabled", "domBlockers", "domRect", "environment", "indexedDB", "localStorage", "networkInformation", "openDatabase", "permissions", "privateClickMeasurement", "reducedMotion", "reducedTransparency", "screenFrame", "sensors", "sessionStorage", "webgpu", "webrtc", "webrtcExtended"];
-const COMPONENT_STABILITY = Object.freeze(Object.fromEntries([
-  ...STABLE_COMPONENT_IDS.map((id) => [id, "stable"]),
-  ...SEMI_STABLE_COMPONENT_IDS.map((id) => [id, "semi_stable"]),
-  ...VOLATILE_COMPONENT_IDS.map((id) => [id, "volatile"])
-]));
-componentRegistry.userAgentHighEntropy = getUserAgentHighEntropyFingerprint;
-componentRegistry.storageEstimate = getStorageEstimateFingerprint;
-componentRegistry.mediaDevices = getMediaDevicesFingerprint;
-componentRegistry.environment = getEnvironmentFingerprint;
-componentRegistry.automationSignals = getAutomationSignalsFingerprint;
-componentRegistry.webgpu = getWebgpuFingerprint;
-componentRegistry.webrtcExtended = getWebrtcExtendedFingerprint;
-function getComponentStability(id) {
-  return COMPONENT_STABILITY[id] ?? "stable";
-}
-function getComponentGroup(id) {
-  for (const [group, ids] of Object.entries(COMPONENT_GROUPS)) {
-    if (ids.includes(id)) {
-      return group;
-    }
-  }
-  return "ungrouped";
-}
+
 function pick(obj, keys) {
   const out = {};
   for (const key of keys) {
@@ -3300,248 +2864,104 @@ function pick(obj, keys) {
   }
   return out;
 }
+
 function omit(obj, keys) {
   const out = {};
-  if (!obj || typeof obj !== "object") return out;
+  if (!obj || typeof obj !== 'object') return out;
   const blocked = new Set(keys);
   for (const [k, v] of Object.entries(obj)) {
     if (!blocked.has(k)) out[k] = v;
   }
   return out;
 }
+
 function groupComponents(componentMap) {
   const grouped = {};
   const assigned = new Set();
-  for (const groupName of Object.keys(COMPONENT_GROUPS)) {
-    grouped[groupName] = {};
-  }
-  for (const [id, result] of Object.entries(componentMap)) {
-    const group = getComponentGroup(id);
-    if (!grouped[group]) {
-      grouped[group] = {};
+  for (const [groupName, ids] of Object.entries(COMPONENT_GROUPS)) {
+    const entries = {};
+    for (const id of ids) {
+      if (componentMap[id]) {
+        entries[id] = componentMap[id];
+        assigned.add(id);
+      }
     }
-    grouped[group][id] = result;
-    assigned.add(id);
+    grouped[groupName] = entries;
   }
   const ungrouped = {};
   for (const [id, value] of Object.entries(componentMap)) {
-    if (!assigned.has(id)) {
-      ungrouped[id] = value;
-    }
+    if (!assigned.has(id)) ungrouped[id] = value;
   }
-  grouped.ungrouped = { ...(grouped.ungrouped || {}), ...ungrouped };
+  grouped.ungrouped = ungrouped;
   return grouped;
 }
-function buildClientSummary(componentMap) {
-  const results = Object.values(componentMap);
-  const counts = {
-    componentCount: results.length,
-    stableComponentCount: 0,
-    semiStableComponentCount: 0,
-    volatileComponentCount: 0,
-    supportedComponentCount: 0,
-    unsupportedComponentCount: 0,
-    errorComponentCount: 0,
-    timeoutComponentCount: 0
-  };
-  for (const result of results) {
-    const stability = result.stability || "stable";
-    if (stability === "stable") counts.stableComponentCount += 1;
-    if (stability === "semi_stable") counts.semiStableComponentCount += 1;
-    if (stability === "volatile") counts.volatileComponentCount += 1;
-    const status = result.status || "ok";
-    if (status === "ok") counts.supportedComponentCount += 1;
-    if (status === "unsupported") counts.unsupportedComponentCount += 1;
-    if (status === "error") counts.errorComponentCount += 1;
-    if (status === "timeout") counts.timeoutComponentCount += 1;
-  }
-  return counts;
-}
-async function buildClientComposites(componentMap, delimiter = "-", hashComposite = true) {
-  const byStability = { stable: [], semi_stable: [], volatile: [] };
-  for (const [id, result] of Object.entries(componentMap)) {
-    const stability = result.stability || getComponentStability(id);
-    if (!byStability[stability]) {
-      byStability[stability] = [];
-    }
-    byStability[stability].push(result.hash);
-  }
-  const stableComposite = byStability.stable.join(delimiter);
-  const semiStableComposite = byStability.semi_stable.join(delimiter);
-  const volatileComposite = byStability.volatile.join(delimiter);
-  const sessionComposite = [stableComposite, semiStableComposite, volatileComposite].filter(Boolean).join(delimiter);
-  return {
-    stableComposite,
-    semiStableComposite,
-    volatileComposite,
-    sessionComposite,
-    stableCompositeHash: hashComposite && stableComposite ? await hashSha256(stableComposite) : undefined,
-    sessionCompositeHash: hashComposite && sessionComposite ? await hashSha256(sessionComposite) : undefined
-  };
-}
-async function collectTriomarkClient(options = {}) {
-  const componentIds = options.components ?? Object.keys(componentRegistry);
-  const delimiter = options.delimiter ?? "-";
-  const hashComposite = options.hashComposite ?? true;
-  const componentTimeoutMs = options.componentTimeoutMs ?? 2500;
-  const componentResults = {};
-  const errors = [];
-  for (const id of componentIds) {
-    const getter = componentRegistry[id];
-    if (!getter) {
-      errors.push({ id, error: `Unknown fingerprint component: ${id}` });
-      continue;
-    }
-    const startedAt = Date.now();
-    try {
-      const fallback = await buildComponentResult(id, { supported: false, reason: "component-timeout" }, {
-        startedAt,
-        status: "timeout",
-        stability: getComponentStability(id),
-        unstable: getComponentStability(id) !== "stable",
-        error: "component-timeout"
-      });
-      const result = await withTimeout(() => getter(), componentTimeoutMs, fallback);
-      const mappedStability = getComponentStability(id);
-      componentResults[id] = {
-        ...result,
-        stability: !result.stability || result.stability === "stable" && mappedStability !== "stable" ? mappedStability : result.stability,
-        durationMs: typeof result.durationMs === "number" && result.durationMs > 0 ? result.durationMs : Math.max(0, Date.now() - startedAt),
-        unstable: result.unstable ?? mappedStability !== "stable"
-      };
-      if (componentResults[id].status !== "ok" && componentResults[id].error) {
-        errors.push({ id, error: componentResults[id].error, status: componentResults[id].status });
-      }
-    } catch (error) {
-      const result = await buildComponentResult(id, { supported: false, reason: error instanceof Error ? error.message : String(error) }, {
-        startedAt,
-        status: "error",
-        stability: getComponentStability(id),
-        unstable: getComponentStability(id) !== "stable",
-        error: error instanceof Error ? error.message : String(error)
-      });
-      componentResults[id] = result;
-      errors.push({ id, error: result.error, status: result.status });
-    }
-  }
-  return {
-    summary: buildClientSummary(componentResults),
-    components: componentResults,
-    groups: groupComponents(componentResults),
-    composites: await buildClientComposites(componentResults, delimiter, hashComposite),
-    errors
-  };
-}
-function buildDerivedClient(client) {
-  const stableComponentIds = [];
-  const semiStableComponentIds = [];
-  const volatileComponentIds = [];
-  const stableComponentHashes = [];
-  const semiStableComponentHashes = [];
-  const volatileComponentHashes = [];
-  for (const [id, result] of Object.entries(client.components)) {
-    if (result.stability === "stable") {
-      stableComponentIds.push(id);
-      stableComponentHashes.push(result.hash);
-    } else if (result.stability === "semi_stable") {
-      semiStableComponentIds.push(id);
-      semiStableComponentHashes.push(result.hash);
-    } else {
-      volatileComponentIds.push(id);
-      volatileComponentHashes.push(result.hash);
-    }
-  }
-  return {
-    stableComponentIds,
-    semiStableComponentIds,
-    volatileComponentIds,
-    stableComponentHashes,
-    semiStableComponentHashes,
-    volatileComponentHashes
-  };
-}
-function buildDerivedServer(server) {
-  if (!server || typeof server !== "object") {
-    return {
-      headerSequenceText: "",
-      tlsSequenceText: "",
-      normalizedClientHintsText: ""
-    };
-  }
-  return {
-    headerSequenceText: (server.http?.headerNamesInOrder ?? []).join("|"),
-    tlsSequenceText: [
-      (server.tls?.normalizedCipherSuites ?? []).join(","),
-      (server.tls?.normalizedExtensionIds ?? []).join(","),
-      (server.tls?.normalizedSupportedGroups ?? []).join(","),
-      (server.tls?.signatureAlgorithms ?? []).join(",")
-    ].join("|"),
-    normalizedClientHintsText: stableStringify(server.clientHints ?? {})
-  };
-}
+
 function selectServerStableData(server) {
-  if (!server || typeof server !== "object") return null;
+  if (!server || typeof server !== 'object') return null;
   return {
     network: pick(server.network ?? {}, [
-      "host", "hostParsed", "method", "referer", "origin"
+      'host', 'hostParsed', 'method', 'referer', 'origin'
     ]),
     http: pick(server.http ?? {}, [
-      "headerNamesInOrder", "headerOrderHash", "headerNameSetHash", "userAgent", "accept",
-      "acceptEncoding", "acceptLanguage", "primaryLanguage", "languageTags", "languageWeights",
-      "cacheControl", "pragma", "upgradeInsecureRequests", "secFetchSite", "secFetchMode",
-      "secFetchDest", "secFetchUser", "dnt", "secGpc", "priority", "cookieNames", "cookieCount",
-      "contentType", "hasSecFetch", "hasClientHints"
+      'headerNamesInOrder', 'headerOrderHash', 'headerNameSetHash', 'userAgent', 'accept',
+      'acceptEncoding', 'acceptLanguage', 'primaryLanguage', 'languageTags', 'languageWeights',
+      'cacheControl', 'pragma', 'upgradeInsecureRequests', 'secFetchSite', 'secFetchMode',
+      'secFetchDest', 'secFetchUser', 'dnt', 'secGpc', 'priority', 'cookieNames', 'cookieCount',
+      'contentType', 'hasSecFetch', 'hasClientHints'
     ]),
     clientHints: omit(server.clientHints ?? {}, []),
     tls: pick(server.tls ?? {}, [
-      "negotiatedProtocol", "alpnProtocol", "ja3", "ja4", "ja4Prefix", "ja4CipherHash",
-      "ja4ExtensionHash", "clientHelloVersion", "cipherSuitesCount", "cipherSuitesFirst",
-      "cipherSuitesLast", "extensionIds", "extensionNames", "extensionCount", "knownExtensionIds",
-      "knownExtensionCount", "unknownExtensionIds", "unknownExtensionCount", "sniFromExtension",
-      "servername", "hostVsSniMatch", "hostVsServernameMatch", "servernameVsSniMatch",
-      "alpnFromExtension", "alpnCount", "alpnHash", "offeredH2", "negotiatedH2", "alpnMismatch",
-      "supportedVersions", "supportedVersionsCount", "supportedGroups", "supportedGroupsCount",
-      "signatureAlgorithms", "signatureAlgorithmsCount", "ecPointFormats", "ecPointFormatsCount",
-      "pskModes", "keyShareGroupIds", "keyShareGroupIdsHash", "paddingLength", "hasGrease",
-      "greaseCipherSuites", "greaseExtensionIds", "greaseGroupIds", "greaseSupportedVersions",
-      "greaseKeyShareGroups", "normalizedCipherSuites", "normalizedExtensionIds",
-      "normalizedSupportedGroups", "normalizedSupportedVersions", "normalizedKeyShareGroupIds",
-      "cipherSuitesHash", "extensionIdsHash", "supportedVersionsHash", "supportedGroupsHash",
-      "signatureAlgorithmsHash", "ecPointFormatsHash", "normalizedCipherSuitesHash",
-      "normalizedExtensionIdsHash", "normalizedSupportedGroupsHash", "normalizedSupportedVersionsHash"
+      'negotiatedProtocol', 'alpnProtocol', 'ja3', 'ja4', 'ja4Prefix', 'ja4CipherHash',
+      'ja4ExtensionHash', 'clientHelloVersion', 'cipherSuitesCount', 'cipherSuitesFirst',
+      'cipherSuitesLast', 'extensionIds', 'extensionNames', 'extensionCount', 'knownExtensionIds',
+      'knownExtensionCount', 'unknownExtensionIds', 'unknownExtensionCount', 'sniFromExtension',
+      'servername', 'hostVsSniMatch', 'hostVsServernameMatch', 'servernameVsSniMatch',
+      'alpnFromExtension', 'alpnCount', 'alpnHash', 'offeredH2', 'negotiatedH2', 'alpnMismatch',
+      'supportedVersions', 'supportedVersionsCount', 'supportedGroups', 'supportedGroupsCount',
+      'signatureAlgorithms', 'signatureAlgorithmsCount', 'ecPointFormats', 'ecPointFormatsCount',
+      'pskModes', 'keyShareGroupIds', 'keyShareGroupIdsHash', 'paddingLength', 'hasGrease',
+      'greaseCipherSuites', 'greaseExtensionIds', 'greaseGroupIds', 'greaseSupportedVersions',
+      'greaseKeyShareGroups', 'normalizedCipherSuites', 'normalizedExtensionIds',
+      'normalizedSupportedGroups', 'normalizedSupportedVersions', 'normalizedKeyShareGroupIds',
+      'cipherSuitesHash', 'extensionIdsHash', 'supportedVersionsHash', 'supportedGroupsHash',
+      'signatureAlgorithmsHash', 'ecPointFormatsHash', 'normalizedCipherSuitesHash',
+      'normalizedExtensionIdsHash', 'normalizedSupportedGroupsHash', 'normalizedSupportedVersionsHash'
     ])
   };
 }
+
 function selectServerSessionData(server) {
-  if (!server || typeof server !== "object") return null;
+  if (!server || typeof server !== 'object') return null;
   return {
     network: pick(server.network ?? {}, [
-      "clientIp", "forwardedForChain", "proxyHopCount", "host", "hostParsed", "method", "url",
-      "path", "pathHash", "queryStringRaw", "queryStringHash", "queryParamKeys", "queryParamKeysHash",
-      "queryParamCount", "referer", "origin", "forwardedFor", "xForwardedProto", "xForwardedHost",
-      "forwarded", "via"
+      'clientIp', 'forwardedForChain', 'proxyHopCount', 'host', 'hostParsed', 'method', 'url',
+      'path', 'pathHash', 'queryStringRaw', 'queryStringHash', 'queryParamKeys', 'queryParamKeysHash',
+      'queryParamCount', 'referer', 'origin', 'forwardedFor', 'xForwardedProto', 'xForwardedHost',
+      'forwarded', 'via'
     ]),
     socket: pick(server.socket ?? {}, [
-      "remoteAddress", "remoteFamily", "remotePort", "localAddress", "localPort", "encrypted",
-      "authorized", "authorizationError"
+      'remoteAddress', 'remoteFamily', 'remotePort', 'localAddress', 'localPort', 'encrypted',
+      'authorized', 'authorizationError'
     ]),
-    http: omit(server.http ?? {}, ["rawHeaders", "rawTrailers", "trailers", "headersDistinct"]),
+    http: omit(server.http ?? {}, ['rawHeaders', 'rawTrailers', 'trailers', 'headersDistinct']),
     clientHints: omit(server.clientHints ?? {}, []),
-    tls: omit(server.tls ?? {}, ["peerCertificate", "ephemeralKeyInfo"])
+    tls: omit(server.tls ?? {}, ['peerCertificate', 'ephemeralKeyInfo'])
   };
 }
-async function hashServerProfile(server, mode = "stable") {
-  const selected = mode === "session" ? selectServerSessionData(server) : selectServerStableData(server);
+
+async function hashServerProfile(server, mode = 'stable') {
+  const selected = mode === 'session' ? selectServerSessionData(server) : selectServerStableData(server);
   if (!selected) return { data: null, hash: null };
   return {
     data: selected,
     hash: await hashSha256(stableStringify(selected))
   };
 }
-async function fetchExistingServerFingerprint(endpoint = "/fingerprint", fetchOptions = {}) {
+
+async function fetchExistingServerFingerprint(endpoint = '/fingerprint', fetchOptions = {}) {
   const response = await fetch(endpoint, {
-    method: "GET",
-    credentials: fetchOptions.credentials ?? "same-origin",
+    method: 'GET',
+    credentials: fetchOptions.credentials ?? 'same-origin',
     headers: fetchOptions.headers ?? {}
   });
   if (!response.ok) {
@@ -3549,121 +2969,132 @@ async function fetchExistingServerFingerprint(endpoint = "/fingerprint", fetchOp
   }
   return await response.json();
 }
+
 async function buildTriomarkUnifiedResult(client, server, options = {}) {
-  const delimiter = options.delimiter ?? "-";
+  const delimiter = options.delimiter ?? '-';
   const hashComposite = options.hashComposite ?? true;
-  const serverStable = await hashServerProfile(server, "stable");
-  const serverSession = await hashServerProfile(server, "session");
-  const combinedStableComposite = appendServerFingerprint(client.composites.stableComposite, serverStable.hash, delimiter);
-  const combinedSessionComposite = appendServerFingerprint(client.composites.sessionComposite, serverSession.hash, delimiter);
+  const serverStable = await hashServerProfile(server, 'stable');
+  const serverSession = await hashServerProfile(server, 'session');
+  const stableComposite = appendServerFingerprint(client.stableComposite, serverStable.hash, delimiter);
+  const sessionComposite = appendServerFingerprint(client.composite, serverSession.hash, delimiter);
   return {
     serverStableHash: serverStable.hash,
     serverSessionHash: serverSession.hash,
-    stableComposite: combinedStableComposite,
-    stableCompositeHash: hashComposite && combinedStableComposite ? await hashSha256(combinedStableComposite) : undefined,
-    sessionComposite: combinedSessionComposite,
-    sessionCompositeHash: hashComposite && combinedSessionComposite ? await hashSha256(combinedSessionComposite) : undefined,
+    stableComposite,
+    stableCompositeHash: hashComposite ? await hashSha256(stableComposite) : undefined,
+    sessionComposite,
+    sessionCompositeHash: hashComposite ? await hashSha256(sessionComposite) : undefined,
     serverStableData: serverStable.data,
-    serverSessionData: serverSession.data,
-    combinedStableComposite,
-    combinedSessionComposite
+    serverSessionData: serverSession.data
   };
 }
-async function collectTriomark(options = {}) {
+
+async function collectTriomarkClientOnly(options = {}) {
+  const {
+    components = Object.keys(componentRegistry),
+    hashComposite = true,
+    delimiter = '-',
+    includeGroupedComponents = true
+  } = options;
+
   const collectedAt = new Date().toISOString();
-  const clientStartedAt = Date.now();
-  const client = await collectTriomarkClient(options);
-  const clientCollectMs = Date.now() - clientStartedAt;
+  const client = await getFingerprint({ components, hashComposite, delimiter });
+  const groupedComponents = includeGroupedComponents ? groupComponents(client.components) : undefined;
+
+  return {
+    collector: 'triomark',
+    version: TRIOMARK_VERSION,
+    collectedAt,
+    client,
+    groupedComponents
+  };
+}
+
+async function submitTriomarkEvaluation(endpoint = '/api/evaluate', requestBody = {}, fetchOptions = {}) {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    credentials: fetchOptions.credentials ?? 'same-origin',
+    headers: {
+      'content-type': 'application/json',
+      ...(fetchOptions.headers ?? {})
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(`Evaluation endpoint returned non-JSON response: ${response.status}`);
+  }
+
+  if (!response.ok || data?.ok === false) {
+    const message = data?.error?.message || `Evaluation endpoint failed: ${response.status}`;
+    throw new Error(message);
+  }
+
+  return data;
+}
+
+async function collectTriomark(options = {}) {
+  const {
+    components = Object.keys(componentRegistry),
+    hashComposite = true,
+    delimiter = '-',
+    includeServer = true,
+    serverEndpoint = '/fingerprint',
+    serverFetchOptions = undefined,
+    includeGroupedComponents = true
+  } = options;
+
+  const collectedAt = new Date().toISOString();
+  const client = await getFingerprint({ components, hashComposite, delimiter });
+  const groupedComponents = includeGroupedComponents ? groupComponents(client.components) : undefined;
+
   let server = null;
-  let serverError = null;
   let unified = null;
-  let serverCollectMs = 0;
-  if (options.includeServer ?? true) {
-    const serverStartedAt = Date.now();
+  let serverError = null;
+
+  if (includeServer) {
     try {
-      server = await fetchExistingServerFingerprint(options.serverEndpoint ?? "/fingerprint", options.serverFetchOptions ?? {});
-      unified = await buildTriomarkUnifiedResult(client, server, {
-        delimiter: options.delimiter ?? "-",
-        hashComposite: options.hashComposite ?? true
-      });
+      server = await fetchExistingServerFingerprint(serverEndpoint, serverFetchOptions);
+      unified = await buildTriomarkUnifiedResult(client, server, { delimiter, hashComposite });
     } catch (error) {
       serverError = error instanceof Error ? error.message : String(error);
     }
-    serverCollectMs = Date.now() - serverStartedAt;
   }
-  const derived = {
-    client: buildDerivedClient(client),
-    server: buildDerivedServer(server),
-    combined: unified ? {
-      clientStableComposite: client.composites.stableComposite,
-      clientSessionComposite: client.composites.sessionComposite,
-      serverStableComposite: unified.serverStableHash ?? "",
-      serverSessionComposite: unified.serverSessionHash ?? "",
-      combinedStableComposite: unified.combinedStableComposite,
-      combinedSessionComposite: unified.combinedSessionComposite
-    } : {
-      clientStableComposite: client.composites.stableComposite,
-      clientSessionComposite: client.composites.sessionComposite,
-      serverStableComposite: "",
-      serverSessionComposite: "",
-      combinedStableComposite: client.composites.stableComposite,
-      combinedSessionComposite: client.composites.sessionComposite
-    }
-  };
+
   return {
-    meta: {
-      collector: "triomark",
-      version: TRIOMARK_VERSION,
-      schemaVersion: TRIOMARK_SCHEMA_VERSION,
-      collectedAt,
-      page: typeof window !== "undefined" ? {
-        href: window.location?.href ?? null,
-        origin: window.location?.origin ?? null,
-        protocol: window.location?.protocol ?? null,
-        host: window.location?.host ?? null,
-        pathname: window.location?.pathname ?? null
-      } : { href: null, origin: null, protocol: null, host: null, pathname: null },
-      timing: {
-        clientCollectMs,
-        serverCollectMs,
-        totalMs: clientCollectMs + serverCollectMs
-      },
-      errors: {
-        client: client.errors,
-        server: serverError ? [{ error: serverError }] : []
-      }
-    },
-    client,
-    server,
-    derived,
-    collector: "triomark",
+    collector: 'triomark',
     version: TRIOMARK_VERSION,
     references: TRIOMARK_REFERENCES,
     collectedAt,
     options: {
-      components: options.components ?? Object.keys(componentRegistry),
-      hashComposite: options.hashComposite ?? true,
-      delimiter: options.delimiter ?? "-",
-      includeServer: options.includeServer ?? true,
-      serverEndpoint: options.serverEndpoint ?? "/fingerprint"
+      components,
+      hashComposite,
+      delimiter,
+      includeServer,
+      serverEndpoint
     },
-    groupedComponents: client.groups,
+    client,
+    groupedComponents,
+    server,
     serverError,
     unified
   };
 }
+
 export {
   TRIOMARK_VERSION,
-  TRIOMARK_SCHEMA_VERSION,
   TRIOMARK_REFERENCES,
   COMPONENT_GROUPS,
-  COMPONENT_STABILITY,
   groupComponents,
-  collectTriomarkClient,
   selectServerStableData,
   selectServerSessionData,
   hashServerProfile,
   fetchExistingServerFingerprint,
   buildTriomarkUnifiedResult,
+  collectTriomarkClientOnly,
+  submitTriomarkEvaluation,
   collectTriomark
 };

@@ -3,516 +3,519 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TrioMark Demo</title>
+  <title>TrioMark Live Assess</title>
   <style>
-    :root {
-      --bg: #0b1220;
-      --panel: #0f172a;
-      --panel-2: #111c34;
-      --border: #22304a;
-      --text: #e5e7eb;
-      --muted: #93a4c3;
-      --accent: #60a5fa;
-      --accent-2: #1d4ed8;
-      --ok: #10b981;
-      --err: #ef4444;
-      --code: #050b18;
-      --shadow: 0 12px 28px rgba(0,0,0,.28);
+    :root{
+      --bg:#0b1220;--panel:#0f172a;--panel2:#111c34;--border:#22304a;--text:#e5e7eb;--muted:#93a4c3;
+      --ok:#10b981;--warn:#f59e0b;--danger:#ef4444;--shadow:0 12px 28px rgba(0,0,0,.28)
     }
-
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      line-height: 1.5;
-    }
-
-    .wrap {
-      max-width: 1440px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      backdrop-filter: blur(10px);
-      background: rgba(11,18,32,.84);
-      border-bottom: 1px solid rgba(34,48,74,.9);
-    }
-
-    .topbar-inner {
-      max-width: 1440px;
-      margin: 0 auto;
-      padding: 14px 20px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .titlebox h1 {
-      margin: 0;
-      font-size: 22px;
-      line-height: 1.2;
-    }
-
-    .titlebox .meta {
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-
-    input, button {
-      font: inherit;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--panel);
-      color: var(--text);
-    }
-
-    input {
-      min-width: 320px;
-      padding: 10px 12px;
-      outline: none;
-    }
-
-    button {
-      padding: 10px 14px;
-      cursor: pointer;
-      transition: .15s ease;
-    }
-
-    button:hover {
-      border-color: #33507f;
-      background: #13203b;
-    }
-
-    button.primary {
-      background: var(--accent-2);
-      border-color: #315dd6;
-    }
-
-    button.primary:hover {
-      background: #1b56ee;
-    }
-
-    .summary-bar {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0,1fr));
-      gap: 12px;
-      margin: 18px 0;
-    }
-
-    .stat {
-      background: linear-gradient(180deg, var(--panel), var(--panel-2));
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 14px 16px;
-      box-shadow: var(--shadow);
-      min-height: 86px;
-    }
-
-    .stat-label {
-      color: var(--muted);
-      font-size: 12px;
-      margin-bottom: 8px;
-    }
-
-    .stat-value {
-      font-size: 18px;
-      font-weight: 700;
-      word-break: break-word;
-    }
-
-    .stat-value.small {
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .pill-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 6px;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 10px;
-      border-radius: 999px;
-      background: rgba(29,78,216,.22);
-      border: 1px solid rgba(96,165,250,.28);
-      color: #dbeafe;
-      font-size: 12px;
-      white-space: nowrap;
-    }
-
-    .pill.error {
-      background: rgba(239,68,68,.15);
-      border-color: rgba(239,68,68,.35);
-      color: #fecaca;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-      gap: 16px;
-    }
-
-    .card {
-      background: linear-gradient(180deg, var(--panel), var(--panel-2));
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      min-width: 0;
-    }
-
-    .card.full {
-      grid-column: 1 / -1;
-    }
-
-    .card-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .card-head h2 {
-      margin: 0;
-      font-size: 17px;
-      line-height: 1.2;
-    }
-
-    .card-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .mini-btn {
-      padding: 7px 10px;
-      border-radius: 10px;
-      font-size: 12px;
-      background: #13203b;
-    }
-
-    .mini-btn.success {
-      border-color: rgba(16,185,129,.4);
-      color: #d1fae5;
-    }
-
-    .card-body {
-      padding: 0;
-    }
-
-    pre {
-      margin: 0;
-      padding: 14px 16px;
-      min-height: 260px;
-      max-height: 560px;
-      overflow: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-      background: var(--code);
-      color: #dbe7ff;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-
-    .compact pre {
-      min-height: 180px;
-      max-height: 360px;
-    }
-
-    .footer-note {
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 12px;
-    }
-
-    @media (max-width: 1100px) {
-      .summary-bar {
-        grid-template-columns: repeat(2, minmax(0,1fr));
-      }
-      .grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 700px) {
-      .summary-bar {
-        grid-template-columns: 1fr;
-      }
-      input {
-        min-width: 100%;
-      }
-      .topbar-inner {
-        align-items: stretch;
-      }
-      .controls {
-        width: 100%;
-      }
-      .controls > * {
-        width: 100%;
-      }
-    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    .topbar{position:sticky;top:0;z-index:10;background:rgba(11,18,32,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+    .topinner{max-width:1700px;margin:0 auto;padding:14px 18px;display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+    .title h1{margin:0;font-size:22px}.muted{color:var(--muted);font-size:13px}
+    .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    input,button{font:inherit;border-radius:12px;border:1px solid var(--border);background:var(--panel);color:var(--text)}
+    input{padding:10px 12px;min-width:240px} button{padding:10px 14px;cursor:pointer}
+    button.primary{background:#1d4ed8;border-color:#315dd6}
+    .wrap{max-width:1700px;margin:0 auto;padding:18px}
+    .headline{display:grid;grid-template-columns:1.35fr .65fr;gap:14px;margin-bottom:14px}
+    .stats{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:12px;margin:14px 0}
+    .main,.bottom,.two{display:grid;gap:14px}
+    .main{grid-template-columns:1.15fr .85fr}.two{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr 1fr}
+    .triptych{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+    .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;min-width:0}
+    .card-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .card-head h2{margin:0;font-size:17px}.card-body{padding:14px 16px}
+    .stat{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:16px;padding:12px 14px;box-shadow:var(--shadow)}
+    .stat .k{color:var(--muted);font-size:12px;margin-bottom:8px}.stat .v{font-size:18px;font-weight:700}.small{font-size:13px!important;font-weight:600}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.1);font-size:12px;margin:2px 4px 2px 0}
+    .ok{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.35);color:#d1fae5}
+    .warn{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.35);color:#fde68a}
+    .danger{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.35);color:#fecaca}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    pre{margin:0;padding:14px 16px;background:#07111f;color:#dbe7ff;overflow:auto;max-height:560px;white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.5}
+    .kvgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kv{padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px}
+    .kv .k{font-size:12px;color:var(--muted);margin-bottom:4px}.kv .v{font-size:14px;font-weight:600;word-break:break-word}
+    .rulelist,.signal-list{display:grid;gap:10px}.rule,.signal,.check{padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px}
+    .rule .id{font-size:12px;color:var(--muted)} .delta{font-weight:700}.delta.neg{color:#fecaca}.delta.pos{color:#d1fae5}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .check .label{font-size:12px;color:var(--muted);margin-bottom:4px}.check .value{font-size:14px;font-weight:700}
+    table.matrix{width:100%;border-collapse:collapse;font-size:13px}.matrix th,.matrix td{padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top;text-align:left}.matrix th{color:var(--muted);font-weight:600}
+    .headline-box{padding:14px 16px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03)}
+    .headline-box .big{font-size:18px;font-weight:700;margin-bottom:8px}
+    .actions{display:flex;flex-wrap:wrap;gap:6px}
+    @media (max-width:1300px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}.headline,.main,.triptych,.bottom,.two{grid-template-columns:1fr}}
+    @media (max-width:760px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.kvgrid,.grid2{grid-template-columns:1fr} input,.controls>*{width:100%}}
   </style>
 </head>
 <body>
   <div class="topbar">
-    <div class="topbar-inner">
-      <div class="titlebox">
-        <h1>TrioMark Demo</h1>
-        <div class="meta">前端 Phase 2 已補高熵 UA-CH、storage、mediaDevices、environment、automation、webgpu、webrtcExtended，並與現有 /fingerprint 後端資料合併顯示</div>
+    <div class="topinner">
+      <div class="title">
+        <h1>TrioMark Live Assess</h1>
+        <div class="muted">用單一頁面直接看分數、判斷依據、前後端摘要與一致性差異，適合實測與保存。</div>
       </div>
-
       <div class="controls">
-        <input id="serverEndpoint" type="text" value="/fingerprint" />
-        <button id="runBtn" class="primary">重新蒐集</button>
-        <button id="copyAllBtn">複製全部</button>
+        <input id="endpoint" value="/api/evaluate?debug=1" />
+        <input id="providerId" value="live_assess_provider" />
+        <button id="copyHumanBtn">複製人讀報告</button>
+        <button id="copyMachineBtn">複製 AI 完整 JSON</button>
+        <a href="/risk-review.html" class="pill">Review</a>
+        <a href="/risk-metrics.html" class="pill">Metrics</a>
+        <button id="runBtn" class="primary">重新評分</button>
       </div>
     </div>
   </div>
 
   <div class="wrap">
-    <div id="summaryBar" class="summary-bar">
-      <div class="stat">
-        <div class="stat-label">Collector</div>
-        <div id="statCollector" class="stat-value">-</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">前端元件數</div>
-        <div id="statComponents" class="stat-value">-</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Server 狀態</div>
-        <div id="statServer" class="stat-value">-</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">摘要標籤</div>
-        <div id="summaryPills" class="pill-row"></div>
-      </div>
-    </div>
-
-    <div class="grid">
-      <section class="card compact">
-        <div class="card-head">
-          <h2>統一識別值</h2>
-          <div class="card-actions">
-            <button class="mini-btn" data-copy-target="unified">複製</button>
-          </div>
-        </div>
+    <div class="headline">
+      <section class="card">
+        <div class="card-head"><h2>判斷總覽</h2><span id="summaryMeta" class="muted"></span></div>
         <div class="card-body">
-          <pre id="unified"></pre>
+          <div class="headline-box">
+            <div id="headlineText" class="big">-</div>
+            <div id="headlinePills" class="actions"></div>
+          </div>
+          <div style="margin-top:12px" class="kvgrid" id="summaryGrid"></div>
         </div>
       </section>
-
-      <section class="card compact">
-        <div class="card-head">
-          <h2>後端資料</h2>
-          <div class="card-actions">
-            <button class="mini-btn" data-copy-target="server">複製</button>
-          </div>
-        </div>
-        <div class="card-body">
-          <pre id="server"></pre>
-        </div>
-      </section>
-
-      <section class="card full">
-        <div class="card-head">
-          <h2>前端元件</h2>
-          <div class="card-actions">
-            <button class="mini-btn" data-copy-target="client">複製</button>
-          </div>
-        </div>
-        <div class="card-body">
-          <pre id="client"></pre>
-        </div>
-      </section>
-
-      <section class="card full">
-        <div class="card-head">
-          <h2>前端分組</h2>
-          <div class="card-actions">
-            <button class="mini-btn" data-copy-target="groups">複製</button>
-          </div>
-        </div>
-        <div class="card-body">
-          <pre id="groups"></pre>
-        </div>
-      </section>
-
-      <section class="card full">
-        <div class="card-head">
-          <h2>完整輸出</h2>
-          <div class="card-actions">
-            <button class="mini-btn" data-copy-target="raw">複製</button>
-          </div>
-        </div>
-        <div class="card-body">
-          <pre id="raw"></pre>
-        </div>
+      <section class="card">
+        <div class="card-head"><h2>AI 完整 JSON（最完整）</h2><span class="muted">給 AI 分析時用這份</span></div>
+        <pre id="machineJson" class="mono"></pre>
       </section>
     </div>
 
-    <div class="footer-note">複製全部會輸出 unified / client / groups / server / raw 五段內容。</div>
+    <div class="stats">
+      <div class="stat"><div class="k">總分</div><div id="statTotal" class="v">-</div></div>
+      <div class="stat"><div class="k">Browser</div><div id="statBrowser" class="v">-</div></div>
+      <div class="stat"><div class="k">Protocol</div><div id="statProtocol" class="v">-</div></div>
+      <div class="stat"><div class="k">Consistency</div><div id="statConsistency" class="v">-</div></div>
+      <div class="stat"><div class="k">Level</div><div id="statLevel" class="v small">-</div></div>
+      <div class="stat"><div class="k">Support</div><div id="statSupport" class="v small">-</div></div>
+      <div class="stat"><div class="k">Client Profile</div><div id="statClientProfile" class="v small">-</div></div>
+      <div class="stat"><div class="k">Server Profile</div><div id="statServerProfile" class="v small">-</div></div>
+    </div>
+
+    <div class="main">
+      <section class="card">
+        <div class="card-head"><h2>主要扣分 / 加分原因</h2><span class="muted">最值得先看的規則</span></div>
+        <div class="card-body two">
+          <div>
+            <div class="muted" style="margin-bottom:8px">主要扣分原因</div>
+            <div id="penalties" class="rulelist"></div>
+          </div>
+          <div>
+            <div class="muted" style="margin-bottom:8px">主要加分原因</div>
+            <div id="bonuses" class="rulelist"></div>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>可保存報告</h2><span class="muted">適合複製/截圖</span></div>
+        <pre id="report" class="mono"></pre>
+      </section>
+    </div>
+
+    <div class="triptych">
+      <section class="card">
+        <div class="card-head"><h2>Client 關鍵訊號</h2></div>
+        <div class="card-body"><div id="clientSignals" class="signal-list"></div></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>Server 關鍵訊號</h2></div>
+        <div class="card-body"><div id="serverSignals" class="signal-list"></div></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>一致性檢查</h2></div>
+        <div class="card-body"><div id="consistencyChecks" class="signal-list"></div></div>
+      </section>
+    </div>
+
+    <div class="bottom">
+      <section class="card">
+        <div class="card-head"><h2>Client vs Server 比對矩陣</h2><span class="muted">一眼看差異</span></div>
+        <div class="card-body">
+          <table class="matrix">
+            <thead><tr><th>項目</th><th>Client</th><th>Server</th><th>結果</th></tr></thead>
+            <tbody id="comparisonRows"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>評分回應</h2></div>
+        <pre id="response"></pre>
+      </section>
+    </div>
+
+    <div class="bottom" style="margin-top:14px">
+      <section class="card">
+        <div class="card-head"><h2>完整請求 / 回應</h2></div>
+        <pre id="raw"></pre>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>關鍵原始 IDs</h2><span class="muted">方便人工記錄</span></div>
+        <div class="card-body"><div id="keyIds" class="signal-list"></div></div>
+      </section>
+    </div>
   </div>
 
   <script type="module">
-    import { collectTriomark } from './triomark.js';
+    import { collectTriomarkClientOnly, submitTriomarkEvaluation } from './triomark.js';
 
-    const endpointEl = document.getElementById('serverEndpoint');
-    const runBtn = document.getElementById('runBtn');
-    const copyAllBtn = document.getElementById('copyAllBtn');
-
-    const statCollector = document.getElementById('statCollector');
-    const statComponents = document.getElementById('statComponents');
-    const statServer = document.getElementById('statServer');
-    const summaryPills = document.getElementById('summaryPills');
-
-    const unifiedEl = document.getElementById('unified');
-    const clientEl = document.getElementById('client');
-    const groupsEl = document.getElementById('groups');
-    const serverEl = document.getElementById('server');
-    const rawEl = document.getElementById('raw');
+    const els = {
+      endpoint: document.getElementById('endpoint'),
+      providerId: document.getElementById('providerId'),
+      runBtn: document.getElementById('runBtn'),
+      copyHumanBtn: document.getElementById('copyHumanBtn'),
+      copyMachineBtn: document.getElementById('copyMachineBtn'),
+      statTotal: document.getElementById('statTotal'),
+      statBrowser: document.getElementById('statBrowser'),
+      statProtocol: document.getElementById('statProtocol'),
+      statConsistency: document.getElementById('statConsistency'),
+      statLevel: document.getElementById('statLevel'),
+      statSupport: document.getElementById('statSupport'),
+      statClientProfile: document.getElementById('statClientProfile'),
+      statServerProfile: document.getElementById('statServerProfile'),
+      headlineText: document.getElementById('headlineText'),
+      headlinePills: document.getElementById('headlinePills'),
+      summaryMeta: document.getElementById('summaryMeta'),
+      summaryGrid: document.getElementById('summaryGrid'),
+      machineJson: document.getElementById('machineJson'),
+      penalties: document.getElementById('penalties'),
+      bonuses: document.getElementById('bonuses'),
+      report: document.getElementById('report'),
+      clientSignals: document.getElementById('clientSignals'),
+      serverSignals: document.getElementById('serverSignals'),
+      consistencyChecks: document.getElementById('consistencyChecks'),
+      comparisonRows: document.getElementById('comparisonRows'),
+      response: document.getElementById('response'),
+      raw: document.getElementById('raw'),
+      keyIds: document.getElementById('keyIds'),
+    };
 
     let lastData = null;
+    const fmt = (value) => JSON.stringify(value, null, 2);
 
-    function fmt(value) {
-      return JSON.stringify(value, null, 2);
+    function classForScore(score) {
+      if (score >= 80) return 'ok';
+      if (score >= 60) return '';
+      if (score >= 40) return 'warn';
+      return 'danger';
     }
 
-    async function copyText(text, btn) {
-      try {
-        await navigator.clipboard.writeText(text);
-        if (btn) {
-          const old = btn.textContent;
-          btn.textContent = '已複製';
-          btn.classList.add('success');
-          setTimeout(() => {
-            btn.textContent = old;
-            btn.classList.remove('success');
-          }, 1000);
-        }
-      } catch (error) {
-        console.error(error);
-        alert('複製失敗');
+    function classForLevel(level) {
+      if (level === 'high_risk') return 'danger';
+      if (level === 'review') return 'warn';
+      return 'ok';
+    }
+
+    function classForBoolean(value) {
+      if (value === true) return 'ok';
+      if (value === false) return 'danger';
+      return 'warn';
+    }
+
+    function pill(text, cls = '') {
+      return `<span class="pill ${cls}">${String(text)}</span>`;
+    }
+
+    function kv(key, value) {
+      const text = value == null || value === '' ? '-' : String(value);
+      return `<div class="kv"><div class="k">${key}</div><div class="v small">${text}</div></div>`;
+    }
+
+    function prettify(value) {
+      if (Array.isArray(value)) return value.length ? value.join(', ') : '-';
+      if (value && typeof value === 'object') return fmt(value);
+      if (value == null || value === '') return '-';
+      return String(value);
+    }
+
+    function renderRuleList(container, items) {
+      if (!items || !items.length) {
+        container.innerHTML = '<div class="muted">無</div>';
+        return;
       }
-    }
-
-    function buildAllText() {
-      if (!lastData) return '';
-      return [
-        '=== unified ===',
-        fmt(lastData.unified),
-        '',
-        '=== client ===',
-        fmt(lastData.client),
-        '',
-        '=== groupedComponents ===',
-        fmt(lastData.groupedComponents),
-        '',
-        '=== server ===',
-        fmt(lastData.server ?? { error: lastData.serverError ?? 'no server data' }),
-        '',
-        '=== raw ===',
-        fmt(lastData)
-      ].join('\\n');
-    }
-
-    function renderPills(data) {
-      const pills = [
-        `collector: ${data.collector}`,
-        `client components: ${Object.keys(data.client.components).length}`,
-        `server: ${data.server ? 'ok' : 'none'}`
-      ];
-      if (data.serverError) {
-        pills.push(`serverError: ${data.serverError}`);
-      }
-      summaryPills.innerHTML = pills.map(v => {
-        const isErr = v.startsWith('serverError');
-        return `<span class="pill ${isErr ? 'error' : ''}">${v}</span>`;
+      container.innerHTML = items.map((item) => {
+        const deltaClass = Number(item.delta) >= 0 ? 'pos' : 'neg';
+        return `
+          <div class="rule">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+              <div>
+                <div class="id">${item.id} <span class="muted">${item.category} / ${item.severity}</span></div>
+                <div style="margin-top:6px">${item.reason}</div>
+              </div>
+              <div class="delta ${deltaClass}">${Number(item.delta) > 0 ? '+' : ''}${item.delta}</div>
+            </div>
+          </div>`;
       }).join('');
     }
 
+    function renderSignalList(container, entries) {
+      container.innerHTML = entries.map(([label, value]) => `
+        <div class="signal">
+          <div class="k muted">${label}</div>
+          <div class="v small mono">${prettify(value)}</div>
+        </div>`).join('');
+    }
+
+    function buildHumanSnapshotObject(data) {
+      const summary = data.response?.diagnostics?.evaluationSummary || {};
+      const scores = data.response?.scores || {};
+      const action = data.response?.action || {};
+      const requestClient = data.requestBody?.client?.client || {};
+      return {
+        eventId: data.response?.eventId || null,
+        receivedAt: data.response?.receivedAt || null,
+        providerId: data.requestBody?.provider?.providerId || null,
+        scoringVariant: summary.scoringVariant || null,
+        scores: {
+          browser: scores.browserScore ?? null,
+          protocol: scores.protocolScore ?? null,
+          consistency: scores.consistencyScore ?? null,
+          total: scores.totalRiskScore ?? null,
+          level: scores.level ?? null,
+        },
+        support: summary.browserSupportLevel || null,
+        profiles: {
+          client: summary.clientProfile || null,
+          server: summary.serverProfile || null,
+          clientFamily: summary.clientBrowserFamily || null,
+          serverFamily: summary.serverBrowserFamily || null,
+        },
+        keySnapshot: summary.keySnapshot || {},
+        guardrails: (summary.guardrails || []).map((g) => ({ id: g.id, reason: g.reason, cap: g.cap ?? null })),
+        topRuleIds: summary.topRuleIds || [],
+        topPenalties: (summary.ruleSummary?.topPenalties || []).map((item) => ({ id: item.id, delta: item.delta, reason: item.reason })),
+        topBonuses: (summary.ruleSummary?.topBonuses || []).map((item) => ({ id: item.id, delta: item.delta, reason: item.reason })),
+        hashes: {
+          stableCompositeHash: requestClient.stableCompositeHash || null,
+          compositeHash: requestClient.compositeHash || null,
+          unstableCompositeHash: requestClient.unstableCompositeHash || null,
+        },
+        action: {
+          action: action.action || null,
+          challengeRequired: action.challengeRequired ?? null,
+          challengeType: action.challengeType ?? null,
+          rateLimitProfile: action.rateLimitProfile || null,
+        },
+      };
+    }
+
+
+    function buildMachineFullObject(data) {
+      const diagnostics = data.response?.diagnostics || {};
+      return {
+        requestBody: data.requestBody || null,
+        response: data.response || null,
+        evaluationSummary: diagnostics.evaluationSummary || null,
+        normalizedRequest: diagnostics.normalizedRequest || null,
+        rawEvent: diagnostics.rawEvent || null,
+      };
+    }
+
+    function buildReportText(data) {
+      const summary = data.response?.diagnostics?.evaluationSummary || {};
+      const scores = data.response?.scores || {};
+      const action = data.response?.action || {};
+      const penalties = summary.ruleSummary?.topPenalties || [];
+      const bonuses = summary.ruleSummary?.topBonuses || [];
+      const client = summary.clientSignals || {};
+      const server = summary.serverSignals || {};
+      const consistency = summary.consistencyChecks || {};
+      const requestClient = data.requestBody?.client?.client || {};
+      const lines = [
+        `eventId: ${data.response?.eventId || '-'}`,
+        `providerId: ${data.requestBody?.provider?.providerId || '-'}`,
+        `time: ${data.response?.receivedAt || '-'}`,
+        `headline: ${summary.headline || '-'}`,
+        '',
+        `totalRiskScore: ${scores.totalRiskScore}`,
+        `browserScore: ${scores.browserScore}`,
+        `protocolScore: ${scores.protocolScore}`,
+        `consistencyScore: ${scores.consistencyScore}`,
+        `level: ${scores.level}`,
+        `browserSupportLevel: ${summary.browserSupportLevel || '-'}`,
+        `clientProfile: ${summary.clientProfile || '-'}`,
+        `serverProfile: ${summary.serverProfile || '-'}`,
+        `action: ${action.action || '-'} / challenge=${action.challengeRequired ? 'yes' : 'no'} / rateLimit=${action.rateLimitProfile || '-'}`,
+        `guardrails: ${(summary.guardrails || []).map((g) => g.id).join(', ') || 'none'}`,
+        `topRuleIds: ${(summary.topRuleIds || []).join(', ') || 'none'}`,
+        `stableCompositeHash: ${requestClient.stableCompositeHash || '-'}`,
+        '',
+        '[client]',
+        `browserFamily=${client.browserFamily || '-'} platform=${client.platformFamily || '-'} profile=${summary.clientProfile || '-'} uaMobile=${client.uaMobile ?? '-'}`,
+        `language=${client.language || '-'} locale=${client.locale || '-'} timeZone=${client.timeZone || '-'}`,
+        `screen=${client.screen ? `${client.screen.width}x${client.screen.height}@${client.screen.pixelRatio}` : '-'} touch=${client.touch?.maxTouchPoints ?? '-'}`,
+        `webgl=${client.graphics?.webglSupported} renderer=${client.graphics?.webglRenderer || '-'} fonts=${client.graphics?.fontsCount ?? '-'}`,
+        `storage=cookies:${client.storage?.cookiesEnabled} local:${client.storage?.localStorage} session:${client.storage?.sessionStorage} indexedDB:${client.storage?.indexedDB}`,
+        '',
+        '[server]',
+        `browserFamily=${server.browserFamily || '-'} platform=${server.platformFamily || '-'} profile=${summary.serverProfile || '-'} headerCount=${server.headerCount ?? '-'}`,
+        `acceptLanguage=${server.acceptLanguage || '-'} acceptEncoding=${server.acceptEncoding || '-'} secFetch=${server.hasSecFetch} clientHints=${server.hasClientHints}`,
+        `tls=ja3:${server.tls?.ja3 || '-'} ja4:${server.tls?.ja4 || '-'} alpn:${server.tls?.alpnProtocol || '-'} grease:${server.tls?.hasGrease}`,
+        '',
+        '[consistency]',
+        `profileMatch=${consistency.profileMatch} familyMatch=${consistency.familyMatch} platformMatch=${consistency.platformMatch} languageBaseMatch=${consistency.languageBaseMatch}`,
+        `mismatches=${(consistency.mismatches || []).join(', ') || 'none'}`,
+        '',
+        '[top penalties]',
+        ...(penalties.length ? penalties.map((item) => `${item.id} ${item.delta}: ${item.reason}`) : ['none']),
+        '',
+        '[top bonuses]',
+        ...(bonuses.length ? bonuses.map((item) => `${item.id} +${item.delta}: ${item.reason}`) : ['none']),
+      ];
+      return lines.join('\n');
+    }
+
+    function render(data) {
+      const response = data.response || {};
+      const scores = response.scores || {};
+      const action = response.action || {};
+      const summary = response.diagnostics?.evaluationSummary || {};
+      const ruleSummary = summary.ruleSummary || {};
+      const client = summary.clientSignals || {};
+      const server = summary.serverSignals || {};
+      const consistency = summary.consistencyChecks || {};
+      const humanSnapshot = buildHumanSnapshotObject(data);
+      const machineFull = buildMachineFullObject(data);
+
+      els.statTotal.innerHTML = `<span class="pill ${classForScore(Number(scores.totalRiskScore || 0))}">${scores.totalRiskScore ?? '-'}</span>`;
+      els.statBrowser.innerHTML = `<span class="pill ${classForScore(Number(scores.browserScore || 0))}">${scores.browserScore ?? '-'}</span>`;
+      els.statProtocol.innerHTML = `<span class="pill ${classForScore(Number(scores.protocolScore || 0))}">${scores.protocolScore ?? '-'}</span>`;
+      els.statConsistency.innerHTML = `<span class="pill ${classForScore(Number(scores.consistencyScore || 0))}">${scores.consistencyScore ?? '-'}</span>`;
+      els.statLevel.innerHTML = `<span class="pill ${classForLevel(scores.level)}">${scores.level || '-'}</span>`;
+      els.statSupport.innerHTML = `<span class="pill ${summary.browserSupportLevel === 'supported' ? 'ok' : summary.browserSupportLevel === 'unsupported' ? 'danger' : 'warn'}">${summary.browserSupportLevel || '-'}</span>`;
+      els.statClientProfile.textContent = summary.clientProfile || '-';
+      els.statServerProfile.textContent = summary.serverProfile || '-';
+
+      els.summaryMeta.textContent = `eventId: ${response.eventId || '-'} | provider: ${data.requestBody.provider.providerId}`;
+      els.headlineText.textContent = summary.headline || '-';
+      els.headlinePills.innerHTML = [
+        pill(`variant: ${summary.scoringVariant || '-'}`),
+        pill(`raw total: ${summary.rawTotalRiskScore ?? '-'}`),
+        pill(`action: ${action.action || '-'}`, action.action === 'restrict' ? 'danger' : action.action === 'challenge' ? 'warn' : 'ok'),
+        pill(`challenge: ${action.challengeRequired ? 'yes' : 'no'}`, action.challengeRequired ? 'warn' : 'ok'),
+      ].join(' ');
+
+      els.summaryGrid.innerHTML = [
+        kv('eventId', response.eventId),
+        kv('receivedAt', response.receivedAt),
+        kv('providerId', data.requestBody.provider.providerId),
+        kv('conversationId', data.requestBody.conversation.conversationId),
+        kv('clientBrowserFamily', summary.clientBrowserFamily),
+        kv('serverBrowserFamily', summary.serverBrowserFamily),
+        kv('clientPlatformFamily', summary.clientPlatformFamily),
+        kv('serverPlatformFamily', summary.serverPlatformFamily),
+        kv('topGuardrails', (summary.guardrails || []).map((g) => g.id).join(', ') || 'none'),
+        kv('topRuleIds', (summary.topRuleIds || []).join(', ') || 'none'),
+        kv('ruleHitCounts', fmt(summary.ruleHitCounts || {})),
+        kv('warnings', (response.diagnostics?.warnings || []).length),
+      ].join('');
+
+      renderRuleList(els.penalties, ruleSummary.topPenalties || []);
+      renderRuleList(els.bonuses, ruleSummary.topBonuses || []);
+
+      renderSignalList(els.clientSignals, [
+        ['browserFamily', client.browserFamily],
+        ['platformFamily', client.platformFamily],
+        ['browser', `${client.browserName || '-'} ${client.browserVersion || ''}`.trim()],
+        ['userAgent', client.userAgent],
+        ['vendor', client.vendor],
+        ['language/locale/timeZone', `${client.language || '-'} / ${client.locale || '-'} / ${client.timeZone || '-'}`],
+        ['screen', client.screen],
+        ['touch', client.touch],
+        ['runtime', client.runtime],
+        ['graphics', client.graphics],
+        ['storage', client.storage],
+        ['capabilities', client.capabilities],
+      ]);
+
+      renderSignalList(els.serverSignals, [
+        ['browserFamily', server.browserFamily],
+        ['platformFamily', server.platformFamily],
+        ['userAgent', server.userAgent],
+        ['headerCount', server.headerCount],
+        ['acceptLanguage', server.acceptLanguage],
+        ['acceptEncoding', server.acceptEncoding],
+        ['secFetch', server.secFetch],
+        ['clientHints', server.clientHints],
+        ['tls', server.tls],
+      ]);
+
+      renderSignalList(els.consistencyChecks, [
+        ['aligned', consistency.aligned],
+        ['mismatches', consistency.mismatches],
+        ['profileMatch', consistency.profileMatch],
+        ['familyMatch', consistency.familyMatch],
+        ['platformMatch', consistency.platformMatch],
+        ['languageBaseMatch', consistency.languageBaseMatch],
+        ['hostVsSniMatch', consistency.hostVsSniMatch],
+        ['hasSecFetch', consistency.hasSecFetch],
+        ['hasClientHints', consistency.hasClientHints],
+        ['hasGrease', consistency.hasGrease],
+      ]);
+
+      els.comparisonRows.innerHTML = (summary.comparisonRows || []).map((row) => {
+        const result = row.match === true ? pill('一致', 'ok') : row.match === false ? pill('不一致', 'danger') : pill('觀察', 'warn');
+        return `<tr><td>${row.label}</td><td class="mono">${prettify(row.client)}</td><td class="mono">${prettify(row.server)}</td><td>${result}</td></tr>`;
+      }).join('');
+
+      renderSignalList(els.keyIds, [
+        ['stableCompositeHash', humanSnapshot.hashes.stableCompositeHash],
+        ['compositeHash', humanSnapshot.hashes.compositeHash],
+        ['unstableCompositeHash', humanSnapshot.hashes.unstableCompositeHash],
+        ['server JA3', humanSnapshot.keySnapshot.serverJa3],
+        ['server JA4', humanSnapshot.keySnapshot.serverJa4],
+        ['server ALPN', humanSnapshot.keySnapshot.serverAlpn],
+      ]);
+
+      els.machineJson.textContent = fmt(machineFull);
+      els.report.textContent = buildReportText(data);
+      els.response.textContent = fmt({ scores: response.scores, action: response.action, diagnostics: response.diagnostics });
+      els.raw.textContent = fmt(data);
+    }
+
+    async function copyText(text, button, okText) {
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+      const old = button.textContent;
+      button.textContent = okText;
+      setTimeout(() => { button.textContent = old; }, 1000);
+    }
+
     async function run() {
-      runBtn.disabled = true;
-      runBtn.textContent = '蒐集中…';
-
-      statCollector.textContent = '-';
-      statComponents.textContent = '-';
-      statServer.textContent = '蒐集中';
-      summaryPills.innerHTML = '<span class="pill">蒐集中</span>';
-
+      els.runBtn.disabled = true;
+      els.runBtn.textContent = '評分中…';
       try {
-        const data = await collectTriomark({
-          includeServer: true,
-          serverEndpoint: endpointEl.value || '/fingerprint'
-        });
-
-        lastData = data;
-
-        statCollector.textContent = data.collector;
-        statComponents.textContent = String(Object.keys(data.client.components).length);
-        statServer.textContent = data.server ? 'ok' : (data.serverError || 'none');
-
-        renderPills(data);
-
-        unifiedEl.textContent = fmt(data.unified);
-        clientEl.textContent = fmt(data.client);
-        groupsEl.textContent = fmt(data.groupedComponents);
-        serverEl.textContent = fmt(data.server ?? { error: data.serverError ?? 'no server data' });
-        rawEl.textContent = fmt(data);
+        const clientPayload = await collectTriomarkClientOnly({ includeGroupedComponents: true });
+        const requestBody = {
+          schemaVersion: 'risk-eval-request.v1',
+          provider: { providerId: els.providerId.value.trim() || 'live_assess_provider' },
+          conversation: { conversationId: `live_${Date.now()}`, channel: 'web_dm' },
+          page: { path: location.pathname, title: document.title },
+          context: { entryPoint: 'triomark_live_assess', clientTs: new Date().toISOString(), sdkVersion: clientPayload.version },
+          client: clientPayload,
+        };
+        const response = await submitTriomarkEvaluation(els.endpoint.value || '/api/evaluate?debug=1', requestBody);
+        lastData = { clientPayload, requestBody, response };
+        render(lastData);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        lastData = null;
-
-        statCollector.textContent = 'error';
-        statComponents.textContent = '-';
-        statServer.textContent = 'error';
-        summaryPills.innerHTML = `<span class="pill error">${message}</span>`;
-
-        unifiedEl.textContent = '';
-        clientEl.textContent = '';
-        groupsEl.textContent = '';
-        serverEl.textContent = '';
-        rawEl.textContent = message;
+        els.response.textContent = message;
+        els.raw.textContent = message;
+        els.report.textContent = message;
+        els.machineJson.textContent = message;
       } finally {
-        runBtn.disabled = false;
-        runBtn.textContent = '重新蒐集';
+        els.runBtn.disabled = false;
+        els.runBtn.textContent = '重新評分';
       }
     }
 
-    document.querySelectorAll('[data-copy-target]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const id = btn.getAttribute('data-copy-target');
-        const el = document.getElementById(id);
-        await copyText(el?.textContent || '', btn);
-      });
-    });
-
-    copyAllBtn.addEventListener('click', async () => {
-      await copyText(buildAllText(), copyAllBtn);
-    });
-
-    runBtn.addEventListener('click', run);
+    els.runBtn.addEventListener('click', run);
+    els.copyHumanBtn.addEventListener('click', async () => copyText(els.report.textContent, els.copyHumanBtn, '已複製人讀報告'));
+    els.copyMachineBtn.addEventListener('click', async () => copyText(els.machineJson.textContent, els.copyMachineBtn, '已複製 AI JSON'));
     run();
   </script>
 </body>

@@ -1,0 +1,31 @@
+Triomark Risk Final
+
+1. Install deps
+   npm install
+
+2. Generate local cert
+   npm run gen-cert
+
+3. Start server
+   npm start
+
+4. Open test pages
+   https://localhost:8443/triomark-demo.html
+   https://localhost:8443/risk-review.html
+   https://localhost:8443/risk-metrics.html
+
+5. Seed demo data (optional)
+   - In browser: click the demo seed button on review page
+   - Or CLI: npm run risk:seed-demo -- --reset
+
+6. Main testing flow
+   - Visit triomark-demo.html from different browsers/environments
+   - Observe browserScore / protocolScore / consistencyScore / totalRiskScore
+   - Save the on-screen report / snapshot JSON / raw JSON for comparison
+   - Use risk-review.html to inspect stored events
+   - Use risk-metrics.html to inspect aggregate distributions
+
+Notes
+- Main route for scoring is POST /api/evaluate?debug=1
+- This final package is focused on risk scoring and on-screen data display for manual testing.
+- Local certs are not bundled; generate them on your machine.
