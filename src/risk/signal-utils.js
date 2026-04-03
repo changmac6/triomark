@@ -50,6 +50,48 @@ function includesAny(value, patterns) {
   return patterns.some((pattern) => pattern.test(value));
 }
 
+const CHROMIUM_LIKE_UA_PATTERNS = [
+  /(?:OPR|Opera|OPiOS)\/[\d.]+/i,
+  /SamsungBrowser\/[\d.]+/i,
+  /YaBrowser\/[\d.]+/i,
+  /Vivaldi\/[\d.]+/i,
+  /DuckDuckGo(?:\/[\d.]+)?/i,
+  /DDG\/[\d.]+/i,
+  /Whale\/[\d.]+/i,
+  /CocCoc\/[\d.]+/i,
+  /Maxthon\/[\d.]+/i,
+  /Avast\/[\d.]+/i,
+  /AVG\/[\d.]+/i,
+  /Sleipnir\/[\d.]+/i,
+  /Quark\/[\d.]+/i,
+  /HuaweiBrowser\/[\d.]+/i,
+  /MiuiBrowser\/[\d.]+/i,
+  /HeyTapBrowser\/[\d.]+/i,
+  /Iron\/[\d.]+/i,
+  /Arc(?:Search)?\/[\d.]+/i,
+];
+
+const CHROMIUM_LIKE_BRAND_PATTERNS = [
+  /Opera/i,
+  /Brave/i,
+  /Vivaldi/i,
+  /DuckDuckGo/i,
+  /Samsung Internet/i,
+  /Yandex/i,
+  /Whale/i,
+  /Coc Coc/i,
+  /Maxthon/i,
+  /Arc/i,
+];
+
+function isChromiumLikeUserAgent(ua) {
+  return includesAny(ua, CHROMIUM_LIKE_UA_PATTERNS);
+}
+
+function isChromiumLikeBrand(brandNames) {
+  return brandNames.some((name) => includesAny(String(name), CHROMIUM_LIKE_BRAND_PATTERNS));
+}
+
 export function detectClientPlatform(event) {
   const system = getComponentValue(event, 'system');
   const userAgent = getComponentValue(event, 'userAgent');
@@ -74,18 +116,30 @@ export function detectClientBrowserFamily(event) {
   const vendorName = String(vendor?.vendor ?? '');
   const brands = Array.isArray(userAgent?.uaBrands) ? userAgent.uaBrands : Array.isArray(vendorFlavors?.brands) ? vendorFlavors.brands : [];
   const brandNames = brands.map((entry) => String(entry?.brand ?? ''));
+  const hasGoogleChromeBrand = brandNames.some((name) => /google chrome/i.test(name));
+  const hasChromiumBrand = brandNames.some((name) => /^chromium$/i.test(name));
+  const isChromiumLike = browserName === 'chromium_like' || isChromiumLikeUserAgent(ua) || isChromiumLikeBrand(brandNames);
 
-  if (browserName.includes('edge') || /Edg(A|iOS)?\//.test(ua) || brandNames.some((name) => /Edge/i.test(name))) {
+  if (browserName === 'edge' || /Edg(A|iOS)?\//.test(ua) || brandNames.some((name) => /Edge/i.test(name))) {
     return 'edge';
   }
-  if (browserName.includes('chrome') || ((/Chrome\//.test(ua) || /CriOS\//.test(ua)) && !/Edg(A|iOS)?\//.test(ua)) || vendorName.includes('Google')) {
-    return 'chrome';
+  if (isChromiumLike) {
+    return 'chromium_like';
   }
-  if (browserName.includes('safari') || (/Safari\//.test(ua) && !/Chrome\//.test(ua) && !/CriOS\//.test(ua) && !/Edg(A|iOS)?\//.test(ua))) {
+  if (browserName === 'safari' || (/Safari\//.test(ua) && !/Chrome\//.test(ua) && !/CriOS\//.test(ua) && !/Edg(A|iOS)?\//.test(ua) && !isChromiumLikeUserAgent(ua))) {
     return 'safari';
   }
-  if (browserName.includes('firefox') || /Firefox\//.test(ua)) {
-    return 'firefox';
+  if (browserName === 'chrome') {
+    return 'chrome';
+  }
+
+  const looksLikeChrome = (/Chrome\//.test(ua) || /CriOS\//.test(ua)) && !/Edg(A|iOS)?\//.test(ua);
+  const hasStrictChromeSignals = vendorName.includes('Google') || hasGoogleChromeBrand || /CriOS\//.test(ua);
+  if (looksLikeChrome && hasStrictChromeSignals && !(hasChromiumBrand && !hasGoogleChromeBrand)) {
+    return 'chrome';
+  }
+  if (looksLikeChrome) {
+    return 'chromium_like';
   }
   return 'unknown';
 }
@@ -104,7 +158,6 @@ export function detectClientProfile(event) {
   if (platform === 'iphone' && browser === 'safari') return 'iphone_safari';
 
   if (platform === 'unknown' && browser === 'unknown') return 'unknown';
-  if (browser === 'firefox') return `unsupported_firefox_${platform}`;
   return `unsupported_${platform}_${browser}`;
 }
 
@@ -126,11 +179,20 @@ export function detectServerBrowserFamily(event) {
   const clientHints = event?.server?.raw?.clientHints ?? event?.server?.clientHints ?? {};
   const ua = normalizeUserAgentString(http.userAgent);
   const secChUa = String(clientHints.secChUa ?? '');
+  const secChUaBrands = secChUa.split(',').map((part) => part.trim()).filter(Boolean);
+  const hasGoogleChromeBrand = /Google Chrome/i.test(secChUa);
+  const hasChromiumBrand = /"Chromium"/i.test(secChUa);
+  const isChromiumLike = isChromiumLikeUserAgent(ua) || isChromiumLikeBrand(secChUaBrands);
 
   if (/Edg(A|iOS)?\//.test(ua) || /Microsoft Edge/i.test(secChUa)) return 'edge';
-  if (/Firefox\//.test(ua)) return 'firefox';
-  if ((/Chrome\//.test(ua) || /CriOS\//.test(ua)) && !/Edg(A|iOS)?\//.test(ua)) return 'chrome';
-  if (/Safari\//.test(ua) && !/Chrome\//.test(ua) && !/CriOS\//.test(ua) && !/Edg(A|iOS)?\//.test(ua)) return 'safari';
+  if (isChromiumLike) return 'chromium_like';
+  if (/Safari\//.test(ua) && !/Chrome\//.test(ua) && !/CriOS\//.test(ua) && !/Edg(A|iOS)?\//.test(ua) && !isChromiumLikeUserAgent(ua)) return 'safari';
+
+  const looksLikeChrome = (/Chrome\//.test(ua) || /CriOS\//.test(ua)) && !/Edg(A|iOS)?\//.test(ua);
+  if (looksLikeChrome && (hasGoogleChromeBrand || /CriOS\//.test(ua) || (hasChromiumBrand && !isChromiumLike))) {
+    return 'chrome';
+  }
+  if (looksLikeChrome) return 'chromium_like';
   return 'unknown';
 }
 
@@ -148,7 +210,6 @@ export function detectServerProfile(event) {
   if (platform === 'iphone' && browser === 'safari') return 'iphone_safari';
 
   if (platform === 'unknown' && browser === 'unknown') return 'unknown';
-  if (browser === 'firefox') return `unsupported_firefox_${platform}`;
   return `unsupported_${platform}_${browser}`;
 }
 
@@ -157,7 +218,7 @@ export function detectSupportedBrowserPolicy(event) {
   const serverProfile = detectServerProfile(event);
   const profiles = [clientProfile, serverProfile].filter(Boolean);
   const supportedProfiles = profiles.filter((profile) => SUPPORTED_BASELINE_PROFILES.includes(profile));
-  const unsupportedProfiles = profiles.filter((profile) => profile.startsWith('unsupported_') || profile.includes('firefox'));
+  const unsupportedProfiles = profiles.filter((profile) => profile.startsWith('unsupported_'));
 
   if (unsupportedProfiles.length > 0) {
     return {

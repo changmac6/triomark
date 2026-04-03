@@ -322,7 +322,7 @@ function collectCanvasFingerprint() {
     return { supported: false, reason: "document-unavailable" };
   }
   const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
+  const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) {
     return { supported: false, reason: "canvas-unavailable" };
   }
@@ -2299,18 +2299,48 @@ function getBrowserInfo() {
   if (typeof navigator === "undefined") {
     return { name: "unknown", version: null };
   }
-  const ua = navigator.userAgent;
-  const candidates = [
-    ["Edge", /Edg\/([\d.]+)/],
-    ["Chrome", /Chrome\/([\d.]+)/],
-    ["Firefox", /Firefox\/([\d.]+)/],
-    ["Safari", /Version\/([\d.]+).*Safari/]
-  ];
-  for (const [name, regex] of candidates) {
-    const match = ua.match(regex);
-    if (match) {
-      return { name, version: match[1] ?? null };
-    }
+  const ua = navigator.userAgent || "";
+  const vendor = navigator.vendor || "";
+  const uaDataBrands = navigator.userAgentData?.brands ?? [];
+  const brandNames = uaDataBrands.map((entry) => String(entry?.brand || "")).filter(Boolean);
+  const hasGoogleChromeBrand = brandNames.some((brand) => /google chrome/i.test(brand));
+  const hasChromiumBrand = brandNames.some((brand) => /^chromium$/i.test(brand));
+  const hasOperaSignal = typeof window !== "undefined" && (!!window.opr?.addons || !!window.opera);
+  const hasBraveSignal = typeof navigator.brave?.isBrave === "function";
+  const chromiumLikeTokenPattern = /(?:OPR|Opera|OPiOS|SamsungBrowser|YaBrowser|Vivaldi|DuckDuckGo|DuckDuckGo\/|DDG\/|Whale|CocCoc|Maxthon|Avast|AVG|Sleipnir|Quark|HuaweiBrowser|MiuiBrowser|HeyTapBrowser|Iron|Arc|ArcSearch)\/[\d.]+/i;
+  const edgeMatch = ua.match(/(?:Edg|EdgA|EdgiOS)\/([\d.]+)/i);
+  if (edgeMatch) {
+    return { name: "edge", version: edgeMatch[1] ?? null };
+  }
+  const operaMatch = ua.match(/(?:OPR|Opera|OPiOS)\/([\d.]+)/i);
+  if (operaMatch || hasOperaSignal) {
+    return { name: "chromium_like", version: operaMatch?.[1] ?? null };
+  }
+  const chromiumVariantMatch = ua.match(chromiumLikeTokenPattern);
+  if (chromiumVariantMatch || hasBraveSignal) {
+    const variantVersionMatch = chromiumVariantMatch?.[0]?.match(/\/([\d.]+)/);
+    const chromeVersionMatch = ua.match(/(?:Chrome|Chromium|CriOS)\/([\d.]+)/i);
+    return {
+      name: "chromium_like",
+      version: variantVersionMatch?.[1] ?? chromeVersionMatch?.[1] ?? null
+    };
+  }
+  const safariMatch = ua.match(/Version\/([\d.]+).*Safari/i);
+  const hasNonSafariMobileToken = /(?:CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|DDG)/i.test(ua);
+  if (safariMatch && !hasNonSafariMobileToken) {
+    return { name: "safari", version: safariMatch[1] ?? null };
+  }
+  const chromeMatch = ua.match(/(?:Chrome|Chromium|CriOS)\/([\d.]+)/i);
+  if (chromeMatch) {
+    const isStrictChrome = (vendor === "Google Inc." || hasGoogleChromeBrand || /CriOS\//i.test(ua)) && !hasBraveSignal && !hasOperaSignal && !chromiumLikeTokenPattern.test(ua) && !(hasChromiumBrand && !hasGoogleChromeBrand);
+    return {
+      name: isStrictChrome ? "chrome" : "chromium_like",
+      version: chromeMatch[1] ?? null
+    };
+  }
+  const firefoxMatch = ua.match(/(?:Firefox|FxiOS)\/([\d.]+)/i);
+  if (firefoxMatch) {
+    return { name: "unknown", version: firefoxMatch[1] ?? null };
   }
   return { name: "unknown", version: null };
 }
@@ -2989,53 +3019,6 @@ async function buildTriomarkUnifiedResult(client, server, options = {}) {
   };
 }
 
-async function collectTriomarkClientOnly(options = {}) {
-  const {
-    components = Object.keys(componentRegistry),
-    hashComposite = true,
-    delimiter = '-',
-    includeGroupedComponents = true
-  } = options;
-
-  const collectedAt = new Date().toISOString();
-  const client = await getFingerprint({ components, hashComposite, delimiter });
-  const groupedComponents = includeGroupedComponents ? groupComponents(client.components) : undefined;
-
-  return {
-    collector: 'triomark',
-    version: TRIOMARK_VERSION,
-    collectedAt,
-    client,
-    groupedComponents
-  };
-}
-
-async function submitTriomarkEvaluation(endpoint = '/api/evaluate', requestBody = {}, fetchOptions = {}) {
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    credentials: fetchOptions.credentials ?? 'same-origin',
-    headers: {
-      'content-type': 'application/json',
-      ...(fetchOptions.headers ?? {})
-    },
-    body: JSON.stringify(requestBody)
-  });
-
-  let data = null;
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error(`Evaluation endpoint returned non-JSON response: ${response.status}`);
-  }
-
-  if (!response.ok || data?.ok === false) {
-    const message = data?.error?.message || `Evaluation endpoint failed: ${response.status}`;
-    throw new Error(message);
-  }
-
-  return data;
-}
-
 async function collectTriomark(options = {}) {
   const {
     components = Object.keys(componentRegistry),
@@ -3084,6 +3067,52 @@ async function collectTriomark(options = {}) {
   };
 }
 
+async function collectTriomarkClientOnly(options = {}) {
+  const {
+    components = Object.keys(componentRegistry),
+    hashComposite = true,
+    delimiter = '-',
+    includeGroupedComponents = true
+  } = options;
+
+  const collectedAt = new Date().toISOString();
+  const client = await getFingerprint({ components, hashComposite, delimiter });
+  const payload = {
+    collector: 'triomark',
+    version: TRIOMARK_VERSION,
+    collectedAt,
+    client
+  };
+
+  if (includeGroupedComponents) {
+    payload.groupedComponents = groupComponents(client.components);
+  }
+
+  return payload;
+}
+
+async function submitTriomarkEvaluation(endpoint = '/api/evaluate?debug=1', requestBody) {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  const contentType = response.headers.get('content-type') || '';
+  const payload = contentType.includes('application/json') ? await response.json() : await response.text();
+
+  if (!response.ok) {
+    if (payload && typeof payload === 'object' && payload.error) {
+      throw new Error(payload.error.message || `Evaluation failed with ${response.status}`);
+    }
+    throw new Error(typeof payload === 'string' && payload ? payload : `Evaluation failed with ${response.status}`);
+  }
+
+  return payload;
+}
+
 export {
   TRIOMARK_VERSION,
   TRIOMARK_REFERENCES,
@@ -3094,7 +3123,7 @@ export {
   hashServerProfile,
   fetchExistingServerFingerprint,
   buildTriomarkUnifiedResult,
+  collectTriomark,
   collectTriomarkClientOnly,
-  submitTriomarkEvaluation,
-  collectTriomark
+  submitTriomarkEvaluation
 };
